@@ -6,3 +6,5 @@ alembic
 pydantic
 python-dotenv
 httpx
+aiosqlite
+greenlet
