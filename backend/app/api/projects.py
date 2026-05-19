@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends, Response, status
 from typing import List
 from uuid import UUID
-from app.schemas import ProjectCreate, ProjectRead, SubtaskRead, SubtaskUpdate
+from app.schemas import ProjectCreate, ProjectRead, ProjectUpdate, SubtaskCreate, SubtaskRead, SubtaskUpdate
 import logging
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -104,6 +104,59 @@ async def get_project(project_id: str, db: AsyncSession = Depends(get_session)):
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     return project
+
+
+@router.patch("/projects/{project_id}", response_model=ProjectRead)
+async def update_project(
+    project_id: str,
+    payload: ProjectUpdate,
+    db: AsyncSession = Depends(get_session),
+):
+    project = await _get_project_with_subtasks(db, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    updates = payload.model_dump(exclude_unset=True)
+    for field, value in updates.items():
+        setattr(project, field, value)
+
+    await db.flush()
+    return await _get_project_with_subtasks(db, project_id)
+
+
+@router.delete("/projects/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_project(project_id: str, db: AsyncSession = Depends(get_session)):
+    project = await _get_project_with_subtasks(db, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    await db.delete(project)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/projects/{project_id}/subtasks", response_model=SubtaskRead)
+async def create_subtask(
+    project_id: str,
+    payload: SubtaskCreate,
+    db: AsyncSession = Depends(get_session),
+):
+    project = await _get_project_with_subtasks(db, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    subtask = SubtaskModel(
+        project_id=project.id,
+        title=payload.title,
+        description=payload.description,
+        estimated_minutes=payload.estimated_minutes,
+        difficulty=payload.difficulty,
+        status="todo",
+        position=len(project.subtasks),
+        order_index=len(project.subtasks),
+    )
+    db.add(subtask)
+    await db.flush()
+    return subtask
 
 
 @router.post("/projects/{project_id}/redecompose", response_model=ProjectRead)
