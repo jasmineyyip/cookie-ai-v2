@@ -1,8 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends
 from typing import List
-from uuid import uuid4
 from app.schemas import ProjectCreate, ProjectRead
-import datetime
+import logging
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
@@ -10,6 +9,7 @@ from app.db.session import get_session
 from app.db.models import Project as ProjectModel, User as UserModel, Subtask as SubtaskModel
 from app.llm.claude import decompose
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
@@ -50,6 +50,7 @@ async def create_project(payload: ProjectCreate, db: AsyncSession = Depends(get_
             db.add(st)
         project.status = "ready"
     except Exception:
+        logger.exception("Project decomposition failed for project %s", project.id)
         project.status = "failed"
     
     await db.flush()
