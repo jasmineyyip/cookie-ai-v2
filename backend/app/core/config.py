@@ -10,3 +10,8 @@ DATABASE_URL = os.getenv(
 	"sqlite+aiosqlite:///./dev.db",
 )
 CLAUDE_API_KEY = os.getenv("ANTHROPIC_API_KEY") or os.getenv("CLAUDE_API_KEY", "")
+FRONTEND_ORIGINS = [
+	origin.strip()
+	for origin in os.getenv("FRONTEND_ORIGINS", "http://localhost:5173").split(",")
+	if origin.strip()
+]
