@@ -1,5 +1,5 @@
-from typing import List, Optional
-from pydantic import BaseModel
+from typing import List, Literal, Optional
+from pydantic import BaseModel, Field
 from uuid import UUID
 import datetime
 
@@ -13,6 +13,13 @@ class SubtaskBase(BaseModel):
 
 class SubtaskCreate(SubtaskBase):
     pass
+
+
+class SubtaskUpdate(BaseModel):
+    title: Optional[str] = None
+    estimated_minutes: Optional[int] = Field(default=None, ge=5)
+    status: Optional[Literal["todo", "in_progress", "done"]] = None
+    position: Optional[int] = Field(default=None, ge=0)
 
 
 class SubtaskRead(SubtaskBase):

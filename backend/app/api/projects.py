@@ -1,6 +1,7 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Response, status
 from typing import List
-from app.schemas import ProjectCreate, ProjectRead
+from uuid import UUID
+from app.schemas import ProjectCreate, ProjectRead, SubtaskRead, SubtaskUpdate
 import logging
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -11,6 +12,56 @@ from app.llm.claude import decompose
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+def _parse_uuid(value: str, resource_name: str):
+    if isinstance(value, UUID):
+        return value
+
+    try:
+        return UUID(value)
+    except ValueError:
+        raise HTTPException(status_code=404, detail=f"{resource_name} not found")
+
+
+async def _get_project_with_subtasks(db: AsyncSession, project_id: str):
+    parsed_project_id = _parse_uuid(project_id, "Project")
+    q = (
+        select(ProjectModel)
+        .where(ProjectModel.id == parsed_project_id)
+        .options(selectinload(ProjectModel.subtasks))
+        .execution_options(populate_existing=True)
+    )
+    res = await db.execute(q)
+    return res.scalars().first()
+
+
+def _create_subtasks(project: ProjectModel, items: List[dict], db: AsyncSession):
+    for idx, item in enumerate(items):
+        subtask = SubtaskModel(
+            project_id=project.id,
+            title=item.get("title") or f"Step {idx + 1}",
+            description=item.get("description"),
+            estimated_minutes=item.get("estimated_minutes", 30),
+            difficulty=item.get("difficulty", "medium"),
+            status="todo",
+            position=idx,
+            order_index=idx,
+        )
+        db.add(subtask)
+
+
+async def _decompose_project(project: ProjectModel, db: AsyncSession):
+    try:
+        items = decompose(project.raw_instructions or project.title or "")
+        if not items:
+            raise ValueError("Decomposition returned no subtasks")
+
+        _create_subtasks(project, items, db)
+        project.status = "ready"
+    except Exception:
+        logger.exception("Project decomposition failed for project %s", project.id)
+        project.status = "failed"
 
 
 @router.post("/projects", response_model=ProjectRead)
@@ -33,33 +84,10 @@ async def create_project(payload: ProjectCreate, db: AsyncSession = Depends(get_
     db.add(project)
     await db.flush()
 
-    # Run decomposition and create subtasks
-    try:
-        items = decompose(payload.instructions or payload.title or "")
-        for idx, it in enumerate(items):
-            st = SubtaskModel(
-                project_id=project.id,
-                title=it.get("title") or f"Step {idx+1}",
-                description=it.get("description"),
-                estimated_minutes=it.get("estimated_minutes", 30),
-                difficulty=it.get("difficulty", "medium"),
-                status="todo",
-                position=idx,
-                order_index=idx,
-            )
-            db.add(st)
-        project.status = "ready"
-    except Exception:
-        logger.exception("Project decomposition failed for project %s", project.id)
-        project.status = "failed"
-    
+    await _decompose_project(project, db)
     await db.flush()
-    
-    # Fetch the project fresh with eagerly-loaded subtasks
-    q = select(ProjectModel).where(ProjectModel.id == project.id).options(selectinload(ProjectModel.subtasks))
-    res = await db.execute(q)
-    result = res.scalars().first()
-    return result
+
+    return await _get_project_with_subtasks(db, project.id)
 
 
 @router.get("/projects", response_model=List[ProjectRead])
@@ -72,9 +100,59 @@ async def list_projects(db: AsyncSession = Depends(get_session)):
 
 @router.get("/projects/{project_id}", response_model=ProjectRead)
 async def get_project(project_id: str, db: AsyncSession = Depends(get_session)):
-    q = select(ProjectModel).where(ProjectModel.id == project_id).options(selectinload(ProjectModel.subtasks))
-    res = await db.execute(q)
-    project = res.scalars().first()
+    project = await _get_project_with_subtasks(db, project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     return project
+
+
+@router.post("/projects/{project_id}/redecompose", response_model=ProjectRead)
+async def redecompose_project(project_id: str, db: AsyncSession = Depends(get_session)):
+    project = await _get_project_with_subtasks(db, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    for subtask in project.subtasks:
+        await db.delete(subtask)
+
+    project.status = "decomposing"
+    await db.flush()
+
+    await _decompose_project(project, db)
+    await db.flush()
+
+    return await _get_project_with_subtasks(db, project_id)
+
+
+@router.patch("/subtasks/{subtask_id}", response_model=SubtaskRead)
+async def update_subtask(
+    subtask_id: str,
+    payload: SubtaskUpdate,
+    db: AsyncSession = Depends(get_session),
+):
+    parsed_subtask_id = _parse_uuid(subtask_id, "Subtask")
+    q = select(SubtaskModel).where(SubtaskModel.id == parsed_subtask_id)
+    res = await db.execute(q)
+    subtask = res.scalars().first()
+    if not subtask:
+        raise HTTPException(status_code=404, detail="Subtask not found")
+
+    updates = payload.model_dump(exclude_unset=True)
+    for field, value in updates.items():
+        setattr(subtask, field, value)
+
+    await db.flush()
+    return subtask
+
+
+@router.delete("/subtasks/{subtask_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_subtask(subtask_id: str, db: AsyncSession = Depends(get_session)):
+    parsed_subtask_id = _parse_uuid(subtask_id, "Subtask")
+    q = select(SubtaskModel).where(SubtaskModel.id == parsed_subtask_id)
+    res = await db.execute(q)
+    subtask = res.scalars().first()
+    if not subtask:
+        raise HTTPException(status_code=404, detail="Subtask not found")
+
+    await db.delete(subtask)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
