@@ -14,6 +14,11 @@ def create_app():
         allow_headers=["*"],
     )
     app.include_router(projects.router, prefix="/api")
+
+    @app.get("/")
+    async def health_check():
+        return {"status": "ok", "service": "cookie-ai-backend"}
+
     return app
 
 
