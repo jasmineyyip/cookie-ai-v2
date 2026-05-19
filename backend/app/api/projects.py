@@ -5,6 +5,7 @@ from app.schemas import ProjectCreate, ProjectRead
 import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 from app.db.session import get_session
 from app.db.models import Project as ProjectModel, User as UserModel, Subtask as SubtaskModel
 from app.llm.claude import decompose
@@ -31,9 +32,8 @@ async def create_project(payload: ProjectCreate, db: AsyncSession = Depends(get_
     )
     db.add(project)
     await db.flush()
-    await db.refresh(project)
 
-    # run the decomposition synchronously for now
+    # Run decomposition and create subtasks
     try:
         items = decompose(payload.instructions or payload.title or "")
         for idx, it in enumerate(items):
@@ -49,16 +49,21 @@ async def create_project(payload: ProjectCreate, db: AsyncSession = Depends(get_
             )
             db.add(st)
         project.status = "ready"
-        await db.flush()
     except Exception:
         project.status = "failed"
-    await db.refresh(project)
-    return project
+    
+    await db.flush()
+    
+    # Fetch the project fresh with eagerly-loaded subtasks
+    q = select(ProjectModel).where(ProjectModel.id == project.id).options(selectinload(ProjectModel.subtasks))
+    res = await db.execute(q)
+    result = res.scalars().first()
+    return result
 
 
 @router.get("/projects", response_model=List[ProjectRead])
 async def list_projects(db: AsyncSession = Depends(get_session)):
-    q = select(ProjectModel)
+    q = select(ProjectModel).options(selectinload(ProjectModel.subtasks))
     res = await db.execute(q)
     projects = res.scalars().all()
     return projects
@@ -66,7 +71,7 @@ async def list_projects(db: AsyncSession = Depends(get_session)):
 
 @router.get("/projects/{project_id}", response_model=ProjectRead)
 async def get_project(project_id: str, db: AsyncSession = Depends(get_session)):
-    q = select(ProjectModel).where(ProjectModel.id == project_id)
+    q = select(ProjectModel).where(ProjectModel.id == project_id).options(selectinload(ProjectModel.subtasks))
     res = await db.execute(q)
     project = res.scalars().first()
     if not project:

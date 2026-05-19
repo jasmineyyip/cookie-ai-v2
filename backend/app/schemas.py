@@ -22,8 +22,7 @@ class SubtaskRead(SubtaskBase):
     order_index: int
     created_at: datetime.datetime
 
-    class Config:
-        orm_mode = True
+    model_config = {"from_attributes": True}
 
 
 class ProjectCreate(BaseModel):
@@ -39,5 +38,4 @@ class ProjectRead(BaseModel):
     created_at: datetime.datetime
     subtasks: List[SubtaskRead] = []
 
-    class Config:
-        orm_mode = True
+    model_config = {"from_attributes": True}
