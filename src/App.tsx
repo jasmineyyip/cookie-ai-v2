@@ -445,14 +445,16 @@ function SubtaskCard({
 function Popup({
   onClose,
   narrow = false,
+  locked = false,
   children,
 }: {
   onClose: () => void
   narrow?: boolean
+  locked?: boolean
   children: React.ReactNode
 }) {
   return (
-    <div className="popup-overlay" onClick={onClose}>
+    <div className="popup-overlay" onClick={locked ? undefined : onClose}>
       <div
         className={`popup-content${narrow ? ' popup-narrow' : ''}`}
         onClick={(e) => e.stopPropagation()}
@@ -493,11 +495,13 @@ function AddProjectModal({
     mutation.mutate()
   }
 
+  const pending = mutation.isPending
+
   return (
-    <Popup onClose={onClose}>
+    <Popup onClose={onClose} locked={pending}>
       <div className="top">
         <h2>Add Project</h2>
-        <button className="close" onClick={onClose}><i className="fa-solid fa-xmark"></i></button>
+        <button className="close" onClick={onClose} disabled={pending}><i className="fa-solid fa-xmark"></i></button>
       </div>
       <div className="field">
         <input
@@ -506,6 +510,7 @@ function AddProjectModal({
           value={name}
           onChange={(e) => { setName(e.target.value); setErrors((prev) => ({ ...prev, name: undefined })) }}
           className={errors.name ? 'field-error' : ''}
+          disabled={pending}
         />
         {errors.name && <p className="error-message"><i className="fa-solid fa-exclamation-circle"></i>{errors.name}</p>}
       </div>
@@ -515,14 +520,15 @@ function AddProjectModal({
           value={desc}
           onChange={(e) => { setDesc(e.target.value); setErrors((prev) => ({ ...prev, desc: undefined })) }}
           className={errors.desc ? 'field-error' : ''}
+          disabled={pending}
         />
         {errors.desc && <p className="error-message"><i className="fa-solid fa-exclamation-circle"></i>{errors.desc}</p>}
       </div>
       <div className="buttons">
-        <button className="confirm-button" onClick={handleSubmit} disabled={mutation.isPending}>
-          {mutation.isPending ? 'Adding...' : 'Add Project'}
+        <button className="confirm-button" onClick={handleSubmit} disabled={pending}>
+          {pending ? 'Adding...' : 'Add Project'}
         </button>
-        <button className="cancel-button" onClick={onClose}>Cancel</button>
+        <button className="cancel-button" onClick={onClose} disabled={pending}>Cancel</button>
       </div>
     </Popup>
   )
