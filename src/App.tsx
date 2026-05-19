@@ -1,314 +1,768 @@
-import { useMemo, useState } from 'react'
-import type { FormEvent } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { QueryClient, QueryClientProvider, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link, Navigate, Route, BrowserRouter as Router, Routes, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, ArrowRight, ClipboardList, Loader2, Plus, RefreshCw } from 'lucide-react'
 import {
   createProject,
+  createSubtask,
+  deleteProject,
+  deleteSubtask,
   getProject,
   listProjects,
   redecomposeProject,
+  updateProject,
   updateSubtask,
 } from './api'
-import type { Project, Subtask, SubtaskStatus } from './api'
+import type { Project, Subtask } from './api'
 import './App.css'
 
 const queryClient = new QueryClient()
 
-const columns: Array<{ status: SubtaskStatus; label: string }> = [
-  { status: 'todo', label: 'Todo' },
-  { status: 'in_progress', label: 'In progress' },
-  { status: 'done', label: 'Done' },
-]
+type ModalType = null | 'add-project' | 'delete-project' | 'add-subtask' | 'edit-subtask' | 'delete-subtask'
+type Priority = 'critical' | 'high' | 'medium' | 'low'
 
-const statusOrder: SubtaskStatus[] = ['todo', 'in_progress', 'done']
+const PRIORITY_MAP: Record<Priority, { label: string; bg: string; color: string }> = {
+  critical: { label: 'Critical', bg: '#F87168', color: '#5D1F1A' },
+  high:     { label: 'High',     bg: '#FEA363', color: '#702E00' },
+  medium:   { label: 'Medium',   bg: '#F6CC47', color: '#533F03' },
+  low:      { label: 'Low',      bg: '#4CCE97', color: '#174B35' },
+}
+
+const DIFFICULTY_TO_PRIORITY: Record<string, Priority> = {
+  easy: 'low',
+  medium: 'medium',
+  hard: 'high',
+}
+
+const PRIORITY_TO_DIFFICULTY: Record<Priority, 'easy' | 'medium' | 'hard'> = {
+  critical: 'hard',
+  high: 'hard',
+  medium: 'medium',
+  low: 'easy',
+}
+
+function formatTime(minutes: number): string {
+  const h = Math.floor(minutes / 60)
+  const m = minutes % 60
+  if (h === 0) return `${m}m`
+  if (m === 0) return `${h}h`
+  return `${h}h ${m}m`
+}
 
 function App() {
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [modal, setModal] = useState<ModalType>(null)
+  const [activeSubtask, setActiveSubtask] = useState<Subtask | null>(null)
+  const [projectToDelete, setProjectToDelete] = useState<Project | null>(null)
+
+  function closeModal() {
+    setModal(null)
+    setActiveSubtask(null)
+    setProjectToDelete(null)
+  }
+
   return (
     <QueryClientProvider client={queryClient}>
-      <Router>
-        <Routes>
-          <Route path="/" element={<Navigate to="/projects" replace />} />
-          <Route path="/projects" element={<ProjectsPage />} />
-          <Route path="/projects/new" element={<NewProjectPage />} />
-          <Route path="/projects/:projectId" element={<ProjectDetailPage />} />
-        </Routes>
-      </Router>
+      <Navbar />
+      <div className="columns">
+        <ProjectsPanel
+          selectedId={selectedId}
+          onSelect={setSelectedId}
+          onAdd={() => setModal('add-project')}
+          onDelete={(p) => { setProjectToDelete(p); setModal('delete-project') }}
+        />
+        <InstructionsPanel projectId={selectedId} />
+        <SubtasksPanel
+          projectId={selectedId}
+          onAdd={() => setModal('add-subtask')}
+          onEdit={(s) => { setActiveSubtask(s); setModal('edit-subtask') }}
+          onDelete={(s) => { setActiveSubtask(s); setModal('delete-subtask') }}
+        />
+      </div>
+
+      {modal === 'add-project' && (
+        <AddProjectModal
+          onClose={closeModal}
+          onSuccess={(id) => { setSelectedId(id); closeModal() }}
+        />
+      )}
+      {modal === 'delete-project' && projectToDelete && (
+        <DeleteProjectModal
+          project={projectToDelete}
+          onClose={closeModal}
+          onSuccess={() => {
+            if (selectedId === projectToDelete.id) setSelectedId(null)
+            closeModal()
+          }}
+        />
+      )}
+      {modal === 'add-subtask' && selectedId && (
+        <AddSubtaskModal projectId={selectedId} onClose={closeModal} />
+      )}
+      {modal === 'edit-subtask' && activeSubtask && (
+        <EditSubtaskModal subtask={activeSubtask} onClose={closeModal} />
+      )}
+      {modal === 'delete-subtask' && activeSubtask && (
+        <DeleteSubtaskModal subtask={activeSubtask} onClose={closeModal} />
+      )}
     </QueryClientProvider>
   )
 }
 
-function Shell({ children }: { children: React.ReactNode }) {
+// ── Navbar ────────────────────────────────────────────
+
+function Navbar() {
   return (
-    <main className="app-shell">
-      <nav className="topbar">
-        <Link to="/projects" className="brand">
-          <ClipboardList size={22} />
-          Cookie AI
-        </Link>
-        <Link to="/projects/new" className="primary-link">
-          <Plus size={18} />
-          New project
-        </Link>
-      </nav>
-      {children}
-    </main>
+    <nav className="navbar">
+      <div className="navbar-left">
+        <a href="/"><img src="/cookie-ai-logo.png" alt="Cookie AI" className="logo-img" /></a>
+        <ul>
+          <li><a href="/calendar">Calendar</a></li>
+          <li><a href="/to-do">To-do List</a></li>
+          <li><a href="/dashboard">Dashboard</a></li>
+        </ul>
+      </div>
+      <div className="navbar-right">
+        <p className="nav-greeting">Hi, Jasmine!</p>
+        <a href="/account">
+          <i className="fa-solid fa-circle-user nav-user-icon"></i>
+        </a>
+      </div>
+    </nav>
   )
 }
 
-function ProjectsPage() {
-  const { data: projects = [], isLoading, error } = useQuery({
+// ── Left column: Projects ─────────────────────────────
+
+function ProjectsPanel({
+  selectedId,
+  onSelect,
+  onAdd,
+  onDelete,
+}: {
+  selectedId: string | null
+  onSelect: (id: string) => void
+  onAdd: () => void
+  onDelete: (project: Project) => void
+}) {
+  const { data: projects = [] } = useQuery({
     queryKey: ['projects'],
     queryFn: listProjects,
   })
 
   return (
-    <Shell>
-      <header className="page-header">
-        <div>
-          <p className="eyebrow">Projects</p>
-          <h1>Your decomposition workspace</h1>
+    <div className="project-column">
+      <div className="projects">
+        <div className="header">
+          <h2>Projects</h2>
+          <button className="add-project" onClick={onAdd} aria-label="Add project">
+            <i className="fa-solid fa-circle-plus"></i>
+          </button>
         </div>
-      </header>
-
-      {isLoading ? <LoadingState label="Loading projects" /> : null}
-      {error ? <ErrorState message="Could not load projects. Is the backend running on port 8000?" /> : null}
-      {!isLoading && !error && projects.length === 0 ? <EmptyProjects /> : null}
-
-      <section className="project-list">
-        {projects.map((project) => (
-          <Link to={`/projects/${project.id}`} className="project-row" key={project.id}>
-            <div>
-              <h2>{project.title}</h2>
-              <p>{project.raw_instructions || 'No instructions saved'}</p>
-            </div>
-            <div className="project-meta">
-              <StatusBadge status={project.status} />
-              <span>{project.subtasks.length} tasks</span>
-            </div>
-          </Link>
-        ))}
-      </section>
-    </Shell>
-  )
-}
-
-function EmptyProjects() {
-  return (
-    <section className="empty-state">
-      <ClipboardList size={34} />
-      <h2>No projects yet</h2>
-      <p>Paste a real project description and Cookie AI will turn it into a working task board.</p>
-      <Link to="/projects/new" className="primary-link">
-        <Plus size={18} />
-        Create project
-      </Link>
-    </section>
-  )
-}
-
-function NewProjectPage() {
-  const navigate = useNavigate()
-  const queryClient = useQueryClient()
-  const [title, setTitle] = useState('')
-  const [instructions, setInstructions] = useState('')
-  const mutation = useMutation({
-    mutationFn: createProject,
-    onSuccess: (project) => {
-      queryClient.invalidateQueries({ queryKey: ['projects'] })
-      navigate(`/projects/${project.id}`)
-    },
-  })
-
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    mutation.mutate({ title, instructions })
-  }
-
-  return (
-    <Shell>
-      <Link to="/projects" className="back-link">
-        <ArrowLeft size={18} />
-        Projects
-      </Link>
-      <form className="project-form" onSubmit={handleSubmit}>
-        <div>
-          <p className="eyebrow">New project</p>
-          <h1>Paste the messy version</h1>
-          <p className="supporting-copy">Include enough detail for Claude to split the work into focused sessions.</p>
-        </div>
-
-        <label>
-          Title
-          <input
-            value={title}
-            onChange={(event) => setTitle(event.target.value)}
-            placeholder="Launch SaaS dashboard"
-            required
-          />
-        </label>
-
-        <label>
-          Instructions
-          <textarea
-            value={instructions}
-            onChange={(event) => setInstructions(event.target.value)}
-            placeholder="Build a React dashboard with user auth, charts, migrations, deploy..."
-            rows={9}
-            required
-          />
-        </label>
-
-        {mutation.error ? <ErrorState message="Project creation failed. Check the backend logs." /> : null}
-
-        <button className="primary-button" type="submit" disabled={mutation.isPending}>
-          {mutation.isPending ? <Loader2 className="spin" size={18} /> : <Plus size={18} />}
-          Create and decompose
-        </button>
-      </form>
-    </Shell>
-  )
-}
-
-function ProjectDetailPage() {
-  const { projectId = '' } = useParams()
-  const queryClient = useQueryClient()
-  const projectQuery = useQuery({
-    queryKey: ['projects', projectId],
-    queryFn: () => getProject(projectId),
-    enabled: Boolean(projectId),
-  })
-  const updateMutation = useMutation({
-    mutationFn: ({ subtaskId, status, position }: { subtaskId: string; status: SubtaskStatus; position: number }) =>
-      updateSubtask(subtaskId, { status, position }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['projects'] })
-      queryClient.invalidateQueries({ queryKey: ['projects', projectId] })
-    },
-  })
-  const redecomposeMutation = useMutation({
-    mutationFn: () => redecomposeProject(projectId),
-    onSuccess: (project) => {
-      queryClient.setQueryData(['projects', projectId], project)
-      queryClient.invalidateQueries({ queryKey: ['projects'] })
-    },
-  })
-
-  const project = projectQuery.data
-  const grouped = useMemo(() => groupSubtasks(project?.subtasks ?? []), [project?.subtasks])
-
-  function moveSubtask(subtask: Subtask, direction: -1 | 1) {
-    const currentIndex = statusOrder.indexOf(subtask.status)
-    const nextStatus = statusOrder[currentIndex + direction]
-    if (!nextStatus) return
-
-    updateMutation.mutate({
-      subtaskId: subtask.id,
-      status: nextStatus,
-      position: grouped[nextStatus].length,
-    })
-  }
-
-  return (
-    <Shell>
-      <Link to="/projects" className="back-link">
-        <ArrowLeft size={18} />
-        Projects
-      </Link>
-
-      {projectQuery.isLoading ? <LoadingState label="Loading project" /> : null}
-      {projectQuery.error ? <ErrorState message="Could not load project." /> : null}
-
-      {project ? (
-        <>
-          <header className="project-detail-header">
-            <div>
-              <p className="eyebrow">Project board</p>
-              <h1>{project.title}</h1>
-              <p className="supporting-copy">{project.raw_instructions}</p>
-            </div>
-            <div className="header-actions">
-              <StatusBadge status={project.status} />
-              <button className="secondary-button" onClick={() => redecomposeMutation.mutate()} disabled={redecomposeMutation.isPending}>
-                {redecomposeMutation.isPending ? <Loader2 className="spin" size={18} /> : <RefreshCw size={18} />}
-                Redecompose
+        <div className="projects-container">
+          {projects.map((project) => (
+            <div className="project-item" key={project.id}>
+              <button
+                className={`title${selectedId === project.id ? ' active' : ''}`}
+                onClick={() => onSelect(project.id)}
+              >
+                <p>{project.title}</p>
+              </button>
+              <button
+                className="delete-button"
+                onClick={(e) => { e.stopPropagation(); onDelete(project) }}
+                aria-label="Delete project"
+              >
+                <i className="fa-regular fa-trash-can"></i>
               </button>
             </div>
-          </header>
-
-          <section className="board">
-            {columns.map((column) => (
-              <div className="board-column" key={column.status}>
-                <div className="column-header">
-                  <h2>{column.label}</h2>
-                  <span>{grouped[column.status].length}</span>
-                </div>
-                <div className="task-stack">
-                  {grouped[column.status].map((subtask) => (
-                    <article className="task-card" key={subtask.id}>
-                      <div>
-                        <h3>{subtask.title}</h3>
-                        <p>{subtask.description}</p>
-                      </div>
-                      <div className="task-meta">
-                        <span>{subtask.estimated_minutes} min</span>
-                        <span>{subtask.difficulty}</span>
-                      </div>
-                      <div className="task-actions">
-                        <button
-                          aria-label="Move task left"
-                          disabled={subtask.status === 'todo' || updateMutation.isPending}
-                          onClick={() => moveSubtask(subtask, -1)}
-                        >
-                          <ArrowLeft size={16} />
-                        </button>
-                        <button
-                          aria-label="Move task right"
-                          disabled={subtask.status === 'done' || updateMutation.isPending}
-                          onClick={() => moveSubtask(subtask, 1)}
-                        >
-                          <ArrowRight size={16} />
-                        </button>
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </section>
-        </>
-      ) : null}
-    </Shell>
-  )
-}
-
-function groupSubtasks(subtasks: Subtask[]) {
-  return columns.reduce<Record<SubtaskStatus, Subtask[]>>(
-    (acc, column) => {
-      acc[column.status] = subtasks
-        .filter((subtask) => subtask.status === column.status)
-        .sort((a, b) => a.position - b.position || a.order_index - b.order_index)
-      return acc
-    },
-    { todo: [], in_progress: [], done: [] },
-  )
-}
-
-function StatusBadge({ status }: { status: Project['status'] }) {
-  return <span className={`status-badge ${status}`}>{status}</span>
-}
-
-function LoadingState({ label }: { label: string }) {
-  return (
-    <div className="inline-state">
-      <Loader2 className="spin" size={18} />
-      {label}
+          ))}
+        </div>
+      </div>
     </div>
   )
 }
 
-function ErrorState({ message }: { message: string }) {
-  return <p className="error-state">{message}</p>
+// ── Middle column: Instructions ───────────────────────
+
+function InstructionsPanel({ projectId }: { projectId: string | null }) {
+  const qc = useQueryClient()
+
+  const { data: project } = useQuery({
+    queryKey: ['projects', projectId],
+    queryFn: () => getProject(projectId!),
+    enabled: Boolean(projectId),
+  })
+
+  const [editingTitle, setEditingTitle] = useState(false)
+  const [titleValue, setTitleValue] = useState('')
+  const [description, setDescription] = useState('')
+  const [editingDesc, setEditingDesc] = useState(false)
+  const [instructions, setInstructions] = useState('')
+
+  // Track which project's data is currently reflected in local state
+  const syncedIdRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    if (!projectId) {
+      setTitleValue('')
+      setInstructions('')
+      setDescription('')
+      syncedIdRef.current = null
+    }
+  }, [projectId])
+
+  useEffect(() => {
+    if (project && project.id !== syncedIdRef.current) {
+      setTitleValue(project.title)
+      setInstructions(project.raw_instructions ?? '')
+      syncedIdRef.current = project.id
+    }
+  }, [project])
+
+  const updateMutation = useMutation({
+    mutationFn: (payload: { title?: string; raw_instructions?: string }) =>
+      updateProject(projectId!, payload),
+    onSuccess: (updated) => {
+      qc.setQueryData(['projects', projectId], updated)
+      qc.invalidateQueries({ queryKey: ['projects'] })
+    },
+  })
+
+  const redecomposeMutation = useMutation({
+    mutationFn: () => redecomposeProject(projectId!),
+    onSuccess: (updated) => {
+      syncedIdRef.current = null // allow re-sync after redecompose
+      qc.setQueryData(['projects', projectId], updated)
+      qc.invalidateQueries({ queryKey: ['projects'] })
+    },
+  })
+
+  function handleTitleBlur() {
+    setEditingTitle(false)
+    if (project && titleValue !== project.title) {
+      updateMutation.mutate({ title: titleValue })
+    }
+  }
+
+  function handleTitleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+    if (e.key === 'Escape') { setTitleValue(project?.title ?? ''); setEditingTitle(false) }
+  }
+
+  function handleInstructionsBlur() {
+    if (project && instructions !== (project.raw_instructions ?? '')) {
+      updateMutation.mutate({ raw_instructions: instructions })
+    }
+  }
+
+  const noProject = !projectId
+
+  return (
+    <div className="instruction-column">
+      <div className="instructions">
+        <div className="wrapper">
+          {/* Logo lockup */}
+          <div className="logo">
+            <img src="/cookie-ai-logo.png" alt="" />
+            <span>Cookie AI</span>
+          </div>
+
+          {/* Project header */}
+          <div className="header">
+            <div className="title-container">
+              {editingTitle ? (
+                <input
+                  type="text"
+                  value={titleValue}
+                  onChange={(e) => setTitleValue(e.target.value)}
+                  onBlur={handleTitleBlur}
+                  onKeyDown={handleTitleKeyDown}
+                  autoFocus
+                />
+              ) : (
+                <h2
+                  className={noProject ? 'placeholder' : ''}
+                  onClick={() => !noProject && setEditingTitle(true)}
+                >
+                  {noProject ? 'Select a project' : (titleValue || '...')}
+                </h2>
+              )}
+            </div>
+
+            <div className="desc">
+              <div className="left"><p>Description</p></div>
+              <div className="right">
+                {editingDesc ? (
+                  <textarea
+                    rows={1}
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    onBlur={() => setEditingDesc(false)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) (e.target as HTMLTextAreaElement).blur()
+                    }}
+                    autoFocus
+                  />
+                ) : (
+                  <p
+                    className={`description${!description ? ' placeholder' : ''}`}
+                    onClick={() => !noProject && setEditingDesc(true)}
+                  >
+                    {description || 'Add a description'}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Instruction textarea */}
+          <textarea
+            className="instruction"
+            placeholder="Paste in your assignment instructions."
+            value={instructions}
+            onChange={(e) => setInstructions(e.target.value)}
+            onBlur={handleInstructionsBlur}
+            disabled={noProject}
+          />
+
+          {/* Generate button */}
+          <div className="generate">
+            <button
+              className="generate-button"
+              onClick={() => redecomposeMutation.mutate()}
+              disabled={noProject || redecomposeMutation.isPending}
+            >
+              <i className="fa-solid fa-wand-magic-sparkles"></i>
+              <p>{redecomposeMutation.isPending ? 'Generating...' : 'Generate subtasks'}</p>
+            </button>
+            {redecomposeMutation.isError && (
+              <p className="error">Generation failed. Try again.</p>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Right column: Subtasks ────────────────────────────
+
+function SubtasksPanel({
+  projectId,
+  onAdd,
+  onEdit,
+  onDelete,
+}: {
+  projectId: string | null
+  onAdd: () => void
+  onEdit: (subtask: Subtask) => void
+  onDelete: (subtask: Subtask) => void
+}) {
+  const { data: project } = useQuery({
+    queryKey: ['projects', projectId],
+    queryFn: () => getProject(projectId!),
+    enabled: Boolean(projectId),
+  })
+
+  const subtasks = project?.subtasks ?? []
+
+  return (
+    <div className="subtask-column">
+      <div className="subtasks">
+        <div className="wrapper">
+          <div className="header">
+            <div className="title">
+              <i className="fa-solid fa-wand-magic-sparkles"></i>
+              <p>AI-generated subtasks</p>
+            </div>
+          </div>
+
+          <div className="subtasks-container">
+            {subtasks.map((subtask) => (
+              <SubtaskCard
+                key={subtask.id}
+                subtask={subtask}
+                onEdit={() => onEdit(subtask)}
+                onDelete={() => onDelete(subtask)}
+              />
+            ))}
+          </div>
+
+          <button
+            className="add-task-button"
+            onClick={onAdd}
+            disabled={!projectId}
+          >
+            <i className="fa-solid fa-plus"></i>
+            <span>Add a subtask</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function SubtaskCard({
+  subtask,
+  onEdit,
+  onDelete,
+}: {
+  subtask: Subtask
+  onEdit: () => void
+  onDelete: () => void
+}) {
+  const priorityKey = DIFFICULTY_TO_PRIORITY[subtask.difficulty] ?? 'medium'
+  const priority = PRIORITY_MAP[priorityKey]
+  const timeStr = formatTime(subtask.estimated_minutes)
+
+  return (
+    <div className="subtask">
+      <div className="stripe"></div>
+      <div className="wrapper">
+        <p className="title">{subtask.title}</p>
+        <p className="description">{subtask.description}</p>
+        <div className="tools">
+          <div className="priority">
+            <p className="level" style={{ backgroundColor: priority.bg, color: priority.color }}>
+              {priority.label}
+            </p>
+            <div className="time">
+              <i className="fa-regular fa-clock"></i>
+              <p><span>{timeStr}</span> estimated</p>
+            </div>
+          </div>
+          <div className="edit">
+            <i className="fa-regular fa-pen-to-square" onClick={onEdit}></i>
+            <i className="fa-regular fa-trash-can" onClick={onDelete}></i>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Shared popup wrapper ──────────────────────────────
+
+function Popup({
+  onClose,
+  narrow = false,
+  children,
+}: {
+  onClose: () => void
+  narrow?: boolean
+  children: React.ReactNode
+}) {
+  return (
+    <div className="popup-overlay" onClick={onClose}>
+      <div
+        className={`popup-content${narrow ? ' popup-narrow' : ''}`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {children}
+      </div>
+    </div>
+  )
+}
+
+// ── Add Project modal ─────────────────────────────────
+
+function AddProjectModal({
+  onClose,
+  onSuccess,
+}: {
+  onClose: () => void
+  onSuccess: (id: string) => void
+}) {
+  const qc = useQueryClient()
+  const [name, setName] = useState('')
+  const [desc, setDesc] = useState('')
+  const [errors, setErrors] = useState<{ name?: string; desc?: string }>({})
+
+  const mutation = useMutation({
+    mutationFn: () => createProject({ title: name, instructions: desc }),
+    onSuccess: (project) => {
+      qc.invalidateQueries({ queryKey: ['projects'] })
+      onSuccess(project.id)
+    },
+  })
+
+  function handleSubmit() {
+    const e: typeof errors = {}
+    if (!name.trim()) e.name = 'Project name is required'
+    if (!desc.trim()) e.desc = 'Project description is required'
+    if (Object.keys(e).length) { setErrors(e); return }
+    mutation.mutate()
+  }
+
+  return (
+    <Popup onClose={onClose}>
+      <div className="top">
+        <h2>Add Project</h2>
+        <button className="close" onClick={onClose}><i className="fa-solid fa-xmark"></i></button>
+      </div>
+      <div className="field">
+        <input
+          type="text"
+          placeholder="Project Name"
+          value={name}
+          onChange={(e) => { setName(e.target.value); setErrors((prev) => ({ ...prev, name: undefined })) }}
+          className={errors.name ? 'field-error' : ''}
+        />
+        {errors.name && <p className="error-message"><i className="fa-solid fa-exclamation-circle"></i>{errors.name}</p>}
+      </div>
+      <div className="field">
+        <textarea
+          placeholder="Project Description"
+          value={desc}
+          onChange={(e) => { setDesc(e.target.value); setErrors((prev) => ({ ...prev, desc: undefined })) }}
+          className={errors.desc ? 'field-error' : ''}
+        />
+        {errors.desc && <p className="error-message"><i className="fa-solid fa-exclamation-circle"></i>{errors.desc}</p>}
+      </div>
+      <div className="buttons">
+        <button className="confirm-button" onClick={handleSubmit} disabled={mutation.isPending}>
+          {mutation.isPending ? 'Adding...' : 'Add Project'}
+        </button>
+        <button className="cancel-button" onClick={onClose}>Cancel</button>
+      </div>
+    </Popup>
+  )
+}
+
+// ── Delete Project modal ──────────────────────────────
+
+function DeleteProjectModal({
+  project,
+  onClose,
+  onSuccess,
+}: {
+  project: Project
+  onClose: () => void
+  onSuccess: () => void
+}) {
+  const qc = useQueryClient()
+  const mutation = useMutation({
+    mutationFn: () => deleteProject(project.id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['projects'] })
+      onSuccess()
+    },
+  })
+
+  return (
+    <Popup onClose={onClose} narrow>
+      <div className="top">
+        <h2>Delete project</h2>
+        <button className="close" onClick={onClose}><i className="fa-solid fa-xmark"></i></button>
+      </div>
+      <p className="delete-warning">
+        Once deleted, this project will no longer be accessible. This process cannot be undone.
+      </p>
+      <div className="buttons">
+        <button className="confirm-button delete-confirm" onClick={() => mutation.mutate()} disabled={mutation.isPending}>
+          Delete
+        </button>
+        <button className="cancel-button" onClick={onClose}>Cancel</button>
+      </div>
+    </Popup>
+  )
+}
+
+// ── Shared subtask form fields ────────────────────────
+
+function SubtaskFormFields({
+  name, setName, nameError,
+  desc, setDesc,
+  priority, setPriority,
+  hours, setHours,
+  minutes, setMinutes,
+}: {
+  name: string; setName: (v: string) => void; nameError?: string
+  desc: string; setDesc: (v: string) => void
+  priority: Priority; setPriority: (v: Priority) => void
+  hours: number; setHours: (v: number) => void
+  minutes: number; setMinutes: (v: number) => void
+}) {
+  return (
+    <>
+      <div className="field">
+        <input
+          type="text"
+          placeholder="Subtask name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          className={nameError ? 'field-error' : ''}
+        />
+        {nameError && <p className="error-message"><i className="fa-solid fa-exclamation-circle"></i>{nameError}</p>}
+      </div>
+      <div className="field">
+        <textarea
+          placeholder="Subtask description"
+          value={desc}
+          onChange={(e) => setDesc(e.target.value)}
+        />
+      </div>
+      <div className="priority-row">
+        <i className="fa-solid fa-fire"></i>
+        <select
+          className="level-select"
+          value={priority}
+          onChange={(e) => setPriority(e.target.value as Priority)}
+        >
+          <option value="critical">Critical</option>
+          <option value="high">High</option>
+          <option value="medium">Medium</option>
+          <option value="low">Low</option>
+        </select>
+      </div>
+      <div className="time-row">
+        <i className="fa-solid fa-stopwatch"></i>
+        <select value={hours} onChange={(e) => setHours(Number(e.target.value))}>
+          {[0, 1, 2, 3, 4, 5].map((h) => <option key={h} value={h}>{h}</option>)}
+        </select>
+        <span>hours</span>
+        <select value={minutes} onChange={(e) => setMinutes(Number(e.target.value))}>
+          {[0, 15, 30, 45].map((m) => <option key={m} value={m}>{String(m).padStart(2, '0')}</option>)}
+        </select>
+        <span>minutes</span>
+      </div>
+    </>
+  )
+}
+
+// ── Add Subtask modal ─────────────────────────────────
+
+function AddSubtaskModal({ projectId, onClose }: { projectId: string; onClose: () => void }) {
+  const qc = useQueryClient()
+  const [name, setName] = useState('')
+  const [desc, setDesc] = useState('')
+  const [priority, setPriority] = useState<Priority>('medium')
+  const [hours, setHours] = useState(0)
+  const [mins, setMins] = useState(0)
+  const [nameError, setNameError] = useState('')
+
+  const mutation = useMutation({
+    mutationFn: () => createSubtask(projectId, {
+      title: name,
+      description: desc,
+      estimated_minutes: hours * 60 + mins,
+      difficulty: PRIORITY_TO_DIFFICULTY[priority],
+    }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['projects', projectId] })
+      onClose()
+    },
+  })
+
+  function handleSubmit() {
+    if (!name.trim()) { setNameError('Subtask name is required'); return }
+    mutation.mutate()
+  }
+
+  return (
+    <Popup onClose={onClose}>
+      <div className="top">
+        <h2>Add a subtask</h2>
+        <button className="close" onClick={onClose}><i className="fa-solid fa-xmark"></i></button>
+      </div>
+      <SubtaskFormFields
+        name={name} setName={(v) => { setName(v); setNameError('') }} nameError={nameError}
+        desc={desc} setDesc={setDesc}
+        priority={priority} setPriority={setPriority}
+        hours={hours} setHours={setHours}
+        minutes={mins} setMinutes={setMins}
+      />
+      <div className="buttons">
+        <button className="confirm-button" onClick={handleSubmit} disabled={mutation.isPending}>
+          {mutation.isPending ? 'Adding...' : 'Add Subtask'}
+        </button>
+        <button className="cancel-button" onClick={onClose}>Cancel</button>
+      </div>
+    </Popup>
+  )
+}
+
+// ── Edit Subtask modal ────────────────────────────────
+
+function EditSubtaskModal({ subtask, onClose }: { subtask: Subtask; onClose: () => void }) {
+  const qc = useQueryClient()
+  const initialPriority = DIFFICULTY_TO_PRIORITY[subtask.difficulty] ?? 'medium'
+  const [name, setName] = useState(subtask.title)
+  const [desc, setDesc] = useState(subtask.description ?? '')
+  const [priority, setPriority] = useState<Priority>(initialPriority)
+  const [hours, setHours] = useState(Math.floor(subtask.estimated_minutes / 60))
+  const [mins, setMins] = useState(subtask.estimated_minutes % 60)
+  const [nameError, setNameError] = useState('')
+
+  const mutation = useMutation({
+    mutationFn: () => updateSubtask(subtask.id, {
+      title: name,
+      description: desc,
+      estimated_minutes: hours * 60 + mins,
+      difficulty: PRIORITY_TO_DIFFICULTY[priority],
+    }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['projects'] })
+      onClose()
+    },
+  })
+
+  function handleSubmit() {
+    if (!name.trim()) { setNameError('Subtask name is required'); return }
+    mutation.mutate()
+  }
+
+  return (
+    <Popup onClose={onClose}>
+      <div className="top">
+        <h2>Edit subtask</h2>
+        <button className="close" onClick={onClose}><i className="fa-solid fa-xmark"></i></button>
+      </div>
+      <SubtaskFormFields
+        name={name} setName={(v) => { setName(v); setNameError('') }} nameError={nameError}
+        desc={desc} setDesc={setDesc}
+        priority={priority} setPriority={setPriority}
+        hours={hours} setHours={setHours}
+        minutes={mins} setMinutes={setMins}
+      />
+      <div className="buttons">
+        <button className="confirm-button" onClick={handleSubmit} disabled={mutation.isPending}>
+          {mutation.isPending ? 'Saving...' : 'Save Changes'}
+        </button>
+        <button className="cancel-button" onClick={onClose}>Cancel</button>
+      </div>
+    </Popup>
+  )
+}
+
+// ── Delete Subtask modal ──────────────────────────────
+
+function DeleteSubtaskModal({ subtask, onClose }: { subtask: Subtask; onClose: () => void }) {
+  const qc = useQueryClient()
+  const mutation = useMutation({
+    mutationFn: () => deleteSubtask(subtask.id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['projects'] })
+      onClose()
+    },
+  })
+
+  return (
+    <Popup onClose={onClose} narrow>
+      <div className="top">
+        <h2>Delete subtask</h2>
+        <button className="close" onClick={onClose}><i className="fa-solid fa-xmark"></i></button>
+      </div>
+      <p className="delete-warning">
+        Once deleted, this subtask will no longer be accessible. This process cannot be undone.
+      </p>
+      <div className="buttons">
+        <button className="confirm-button delete-confirm" onClick={() => mutation.mutate()} disabled={mutation.isPending}>
+          Delete
+        </button>
+        <button className="cancel-button" onClick={onClose}>Cancel</button>
+      </div>
+    </Popup>
+  )
 }
 
 export default App
