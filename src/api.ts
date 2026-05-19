@@ -26,9 +26,23 @@ export type ProjectCreate = {
   instructions: string
 }
 
+export type ProjectUpdate = {
+  title?: string
+  raw_instructions?: string
+}
+
+export type SubtaskCreate = {
+  title: string
+  description?: string
+  estimated_minutes: number
+  difficulty: 'easy' | 'medium' | 'hard'
+}
+
 export type SubtaskUpdate = {
   title?: string
+  description?: string
   estimated_minutes?: number
+  difficulty?: string
   status?: SubtaskStatus
   position?: number
 }
@@ -71,6 +85,30 @@ export function createProject(payload: ProjectCreate) {
   })
 }
 
+export function updateProject(projectId: string, payload: ProjectUpdate) {
+  return request<Project>(`/api/projects/${projectId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  })
+}
+
+export function deleteProject(projectId: string) {
+  return request<void>(`/api/projects/${projectId}`, { method: 'DELETE' })
+}
+
+export function redecomposeProject(projectId: string) {
+  return request<Project>(`/api/projects/${projectId}/redecompose`, {
+    method: 'POST',
+  })
+}
+
+export function createSubtask(projectId: string, payload: SubtaskCreate) {
+  return request<Subtask>(`/api/projects/${projectId}/subtasks`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
 export function updateSubtask(subtaskId: string, payload: SubtaskUpdate) {
   return request<Subtask>(`/api/subtasks/${subtaskId}`, {
     method: 'PATCH',
@@ -78,8 +116,6 @@ export function updateSubtask(subtaskId: string, payload: SubtaskUpdate) {
   })
 }
 
-export function redecomposeProject(projectId: string) {
-  return request<Project>(`/api/projects/${projectId}/redecompose`, {
-    method: 'POST',
-  })
+export function deleteSubtask(subtaskId: string) {
+  return request<void>(`/api/subtasks/${subtaskId}`, { method: 'DELETE' })
 }
