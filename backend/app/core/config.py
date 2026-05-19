@@ -9,4 +9,4 @@ DATABASE_URL = os.getenv(
 	"DATABASE_URL",
 	"sqlite+aiosqlite:///./dev.db",
 )
-CLAUDE_API_KEY = os.getenv("CLAUDE_API_KEY", "")
+CLAUDE_API_KEY = os.getenv("ANTHROPIC_API_KEY") or os.getenv("CLAUDE_API_KEY", "")

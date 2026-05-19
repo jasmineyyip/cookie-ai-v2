@@ -7,4 +7,5 @@ pydantic
 python-dotenv
 httpx
 aiosqlite
+anthropic
 greenlet
