@@ -6,7 +6,8 @@ import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.db.session import get_session
-from app.db.models import Project as ProjectModel, User as UserModel
+from app.db.models import Project as ProjectModel, User as UserModel, Subtask as SubtaskModel
+from app.llm.claude import decompose
 
 router = APIRouter()
 
@@ -30,6 +31,27 @@ async def create_project(payload: ProjectCreate, db: AsyncSession = Depends(get_
     )
     db.add(project)
     await db.flush()
+    await db.refresh(project)
+
+    # run the decomposition synchronously for now
+    try:
+        items = decompose(payload.instructions or payload.title or "")
+        for idx, it in enumerate(items):
+            st = SubtaskModel(
+                project_id=project.id,
+                title=it.get("title") or f"Step {idx+1}",
+                description=it.get("description"),
+                estimated_minutes=it.get("estimated_minutes", 30),
+                difficulty=it.get("difficulty", "medium"),
+                status="todo",
+                position=idx,
+                order_index=idx,
+            )
+            db.add(st)
+        project.status = "ready"
+        await db.flush()
+    except Exception:
+        project.status = "failed"
     await db.refresh(project)
     return project
 
