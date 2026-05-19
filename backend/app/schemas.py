@@ -17,9 +17,16 @@ class SubtaskCreate(SubtaskBase):
 
 class SubtaskUpdate(BaseModel):
     title: Optional[str] = None
+    description: Optional[str] = None
     estimated_minutes: Optional[int] = Field(default=None, ge=5)
+    difficulty: Optional[str] = None
     status: Optional[Literal["todo", "in_progress", "done"]] = None
     position: Optional[int] = Field(default=None, ge=0)
+
+
+class ProjectUpdate(BaseModel):
+    title: Optional[str] = None
+    raw_instructions: Optional[str] = None
 
 
 class SubtaskRead(SubtaskBase):
