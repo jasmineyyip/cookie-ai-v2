@@ -6,12 +6,16 @@ from sqlalchemy.orm import relationship
 from app.db.base import Base
 
 
+def utc_now():
+    return datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
+
+
 class User(Base):
     __tablename__ = "users"
     id = Column(PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     clerk_user_id = Column(String, unique=True, nullable=False)
     email = Column(String, nullable=True)
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
 
 
 class Project(Base):
@@ -21,7 +25,7 @@ class Project(Base):
     title = Column(String, nullable=False)
     raw_instructions = Column(Text, nullable=True)
     status = Column(Enum('decomposing', 'ready', 'failed', name='project_status'), default='decomposing')
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
     subtasks = relationship("Subtask", back_populates="project", cascade="all, delete-orphan")
 
 
@@ -36,5 +40,5 @@ class Subtask(Base):
     status = Column(Enum('todo', 'in_progress', 'done', name='subtask_status'), default='todo')
     position = Column(Integer, nullable=False, default=0)
     order_index = Column(Integer, nullable=False, default=0)
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
     project = relationship("Project", back_populates="subtasks")
