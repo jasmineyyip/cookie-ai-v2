@@ -375,6 +375,21 @@ function SubtasksPanel({ projectId, onAdd, onEdit, onDelete }: {
 
   const subtasks = project?.subtasks ?? []
 
+  const prevIdsRef = useRef<Set<string>>(new Set())
+  const [newIds, setNewIds] = useState<Set<string>>(new Set())
+
+  useEffect(() => {
+    const currentIds = new Set(subtasks.map((s) => String(s.id)))
+    const prev = prevIdsRef.current
+    prevIdsRef.current = currentIds
+    if (prev.size === 0) return
+    const appeared = [...currentIds].filter((id) => !prev.has(id))
+    if (appeared.length === 0) return
+    setNewIds(new Set(appeared))
+    const timer = setTimeout(() => setNewIds(new Set()), 3500)
+    return () => clearTimeout(timer)
+  }, [subtasks])
+
   return (
     <div className="w-[320px] shrink-0 border-l border-border flex flex-col">
       <div className="flex items-center gap-2 px-4 py-4">
@@ -385,7 +400,7 @@ function SubtasksPanel({ projectId, onAdd, onEdit, onDelete }: {
       <ScrollArea className="flex-1 min-h-0 px-3 py-3">
         <div className="flex flex-col gap-3">
           {subtasks.map((subtask) => (
-            <SubtaskCard key={subtask.id} subtask={subtask} onEdit={() => onEdit(subtask)} onDelete={() => onDelete(subtask)} />
+            <SubtaskCard key={subtask.id} subtask={subtask} isNew={newIds.has(String(subtask.id))} onEdit={() => onEdit(subtask)} onDelete={() => onDelete(subtask)} />
           ))}
         </div>
       </ScrollArea>
@@ -401,14 +416,14 @@ function SubtasksPanel({ projectId, onAdd, onEdit, onDelete }: {
   )
 }
 
-function SubtaskCard({ subtask, onEdit, onDelete }: { subtask: Subtask; onEdit: () => void; onDelete: () => void }) {
+function SubtaskCard({ subtask, isNew, onEdit, onDelete }: { subtask: Subtask; isNew?: boolean; onEdit: () => void; onDelete: () => void }) {
   const priorityKey = DIFFICULTY_TO_PRIORITY[subtask.difficulty] ?? 'medium'
   const { label, className: badgeCls } = PRIORITY_CONFIG[priorityKey]
   const timeStr = formatTime(subtask.estimated_minutes)
 
   return (
     <Card className="relative overflow-hidden gap-0 py-0 shadow-none border-border group">
-      <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-blue-border rounded-l-xl" />
+      <div className={cn('absolute left-0 top-0 bottom-0 w-1.5 rounded-l-xl', isNew ? 'stripe-new' : 'bg-blue-border')} />
       <CardContent className="pl-5 pr-3 py-3 flex flex-col gap-1.5">
         <p className="text-sm font-semibold text-foreground leading-snug">{subtask.title}</p>
         <p className="text-xs text-muted-foreground leading-relaxed">{subtask.description}</p>

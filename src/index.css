@@ -38,6 +38,15 @@
   --radius: 0.5rem;
 }
 
+@keyframes stripe-new {
+  from { background-color: var(--color-primary); }
+  to   { background-color: var(--color-blue-border); }
+}
+
+.stripe-new {
+  animation: stripe-new 3.5s ease-out forwards;
+}
+
 html, body {
   margin: 0;
   padding: 0;
