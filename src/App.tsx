@@ -92,7 +92,15 @@ function App() {
       {projectToDelete && (
         <DeleteProjectModal open={modal === 'delete-project'} project={projectToDelete}
           onClose={closeModal}
-          onSuccess={() => { if (selectedId === projectToDelete.id) setSelectedId(null); closeModal() }} />
+          onSuccess={() => {
+          if (selectedId === projectToDelete.id) {
+            const projects = queryClient.getQueryData<Project[]>(['projects']) ?? []
+            const idx = projects.findIndex((p) => p.id === projectToDelete.id)
+            const prev = projects[idx - 1] ?? null
+            setSelectedId(prev?.id ?? null)
+          }
+          closeModal()
+        }} />
       )}
       {selectedId && (
         <AddSubtaskModal open={modal === 'add-subtask'} projectId={selectedId} onClose={closeModal} />
