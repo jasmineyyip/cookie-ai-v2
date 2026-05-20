@@ -8,7 +8,9 @@
   --color-card-foreground:     #172B4D;
   --color-popover:             #ffffff;
   --color-popover-foreground:  #172B4D;
-  --color-primary:             #0b66e4;
+  --color-primary:             #1968db;
+  --color-primary-hover:       #1557bb;
+  --color-primary-active:      #123162;
   --color-primary-foreground:  #ffffff;
   --color-secondary:           #F4F5F7;
   --color-secondary-foreground:#172B4D;
