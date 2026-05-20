@@ -1,4 +1,4 @@
-import { Clock, Loader2, Pencil, Scissors, Trash2 } from 'lucide-react'
+import { ChevronUp, Clock, Loader2, Pencil, Scissors, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
@@ -16,11 +16,21 @@ export function getProjectBadgeColor(projectName: string) {
 }
 
 const PRIORITY_CONFIG = {
-  critical: { label: 'Critical', className: 'bg-[#F87168] text-[#5D1F1A] hover:bg-[#F87168]' },
-  high:     { label: 'High',     className: 'bg-[#FEA363] text-[#702E00] hover:bg-[#FEA363]' },
-  medium:   { label: 'Medium',   className: 'bg-[#F6CC47] text-[#533F03] hover:bg-[#F6CC47]' },
-  low:      { label: 'Low',      className: 'bg-[#4CCE97] text-[#174B35] hover:bg-[#4CCE97]' },
+  critical: { label: 'Critical', className: 'bg-[#F87168] text-[#5D1F1A] hover:bg-[#F87168]', arrowCount: 4, arrowClass: 'text-priority-critical' },
+  high:     { label: 'High',     className: 'bg-[#FEA363] text-[#702E00] hover:bg-[#FEA363]', arrowCount: 3, arrowClass: 'text-priority-high' },
+  medium:   { label: 'Medium',   className: 'bg-[#F6CC47] text-[#533F03] hover:bg-[#F6CC47]', arrowCount: 2, arrowClass: 'text-priority-medium' },
+  low:      { label: 'Low',      className: 'bg-[#4CCE97] text-[#174B35] hover:bg-[#4CCE97]', arrowCount: 1, arrowClass: 'text-priority-low' },
 } as const
+
+function PriorityArrows({ count, colorClass }: { count: number; colorClass: string }) {
+  return (
+    <div className="flex flex-col">
+      {Array.from({ length: count }).map((_, i) => (
+        <ChevronUp key={i} className={cn('size-4 -mb-3 last:mb-0', colorClass)} strokeWidth={3} style={{ transform: 'scaleX(1.4) scaleY(0.75)' }} />
+      ))}
+    </div>
+  )
+}
 
 const DIFFICULTY_TO_PRIORITY = { easy: 'low', medium: 'medium', hard: 'high' } as const
 
@@ -45,7 +55,7 @@ export function SubtaskCardView({ subtask, isNew, onSplit, splitPending, onEdit,
   hideStripe?: boolean
 }) {
   const priorityKey = DIFFICULTY_TO_PRIORITY[subtask.difficulty] ?? 'medium'
-  const { label, className: badgeCls } = PRIORITY_CONFIG[priorityKey]
+  const { label, className: badgeCls, arrowCount, arrowClass } = PRIORITY_CONFIG[priorityKey]
   const timeStr = formatTime(subtask.estimated_minutes)
   const badgeColor = projectName ? getProjectBadgeColor(projectName) : null
 
@@ -76,7 +86,10 @@ export function SubtaskCardView({ subtask, isNew, onSplit, splitPending, onEdit,
         )}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 flex-wrap">
-            <Badge className={cn('rounded-sm px-2 py-0.5 text-xs font-medium border-0', badgeCls)}>{label}</Badge>
+            {hideStripe
+              ? <PriorityArrows count={arrowCount} colorClass={arrowClass} />
+              : <Badge className={cn('rounded-sm px-2 py-0.5 text-xs font-medium border-0', badgeCls)}>{label}</Badge>
+            }
             <div className="flex items-center gap-1 text-muted-foreground">
               <Clock className="size-3" />
               <span className="text-xs">{timeStr}</span>

@@ -34,6 +34,12 @@
   --color-active-blue:         #DEEBFF;
   --color-amber:               #FFAB00;
 
+  /* priority arrow colors */
+  --color-priority-critical:   #C9372C;
+  --color-priority-high:       #E06C00;
+  --color-priority-medium:     #DDB30E;
+  --color-priority-low:        #82B536;
+
   --font-family-sans: 'Inter', sans-serif;
   --radius: 0.5rem;
 }
