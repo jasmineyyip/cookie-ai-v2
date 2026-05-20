@@ -311,13 +311,13 @@ function InstructionsPanel({ projectId }: { projectId: string | null }) {
         <div className="flex items-start gap-4">
           <Label className="text-sm text-muted-foreground pt-0.5 w-24 shrink-0">Description</Label>
           {editingDesc ? (
-            <Textarea
+            <Input
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               onBlur={() => { setEditingDesc(false); handleDescriptionBlur() }}
-              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) (e.target as HTMLTextAreaElement).blur() }}
+              onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); if (e.key === 'Escape') { setDescription(project?.description ?? ''); setEditingDesc(false) } }}
               autoFocus
-              className="min-h-0 text-sm"
+              className="text-sm h-auto py-1 border-0 border-b rounded-none px-0 shadow-none focus-visible:ring-0"
             />
           ) : (
             <p
