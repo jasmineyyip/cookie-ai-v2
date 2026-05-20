@@ -61,6 +61,7 @@ class ProjectRead(BaseModel):
     raw_instructions: Optional[str]
     status: str
     created_at: datetime.datetime
+    updated_at: Optional[datetime.datetime] = None
     subtasks: List[SubtaskRead] = []
 
     model_config = {"from_attributes": True}

@@ -127,19 +127,15 @@ function App() {
 // ── Navbar ────────────────────────────────────────────
 
 function Navbar() {
-  const links = [
-    { label: 'Calendar', href: '/calendar' },
-    { label: 'To-do List', href: '/to-do' },
-    { label: 'Dashboard', href: '/dashboard' },
-  ]
+  const disabledLinks = ['Calendar', 'Dashboard']
   return (
     <nav className="flex justify-between items-center px-5 h-[65px] border-b border-border bg-background">
       <div className="flex items-center gap-6">
         <a href="/"><img src="/cookie-ai-logo.png" alt="Cookie AI" className="w-8 h-8" /></a>
         <div className="flex items-center gap-1">
-          {links.map(({ label, href }) => (
-            <Button key={label} variant="ghost" size="sm" asChild>
-              <a href={href} className="text-muted-foreground">{label}</a>
+          {disabledLinks.map((label) => (
+            <Button key={label} variant="ghost" size="sm" disabled className="text-muted-foreground/40 cursor-not-allowed">
+              {label}
             </Button>
           ))}
         </div>

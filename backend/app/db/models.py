@@ -27,6 +27,7 @@ class Project(Base):
     raw_instructions = Column(Text, nullable=True)
     status = Column(Enum('decomposing', 'ready', 'failed', name='project_status'), default='decomposing')
     created_at = Column(DateTime, default=utc_now)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
     subtasks = relationship("Subtask", back_populates="project", cascade="all, delete-orphan", order_by="Subtask.position")
 
 

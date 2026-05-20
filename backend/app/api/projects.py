@@ -4,7 +4,8 @@ from uuid import UUID
 from app.schemas import ProjectCreate, ProjectRead, ProjectUpdate, SubtaskCreate, SubtaskRead, SubtaskUpdate, SubtaskReorderItem, SubtaskMergeRequest
 import logging
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, desc, func
+import datetime
 from sqlalchemy.orm import selectinload
 from app.db.session import get_session
 from app.db.models import Project as ProjectModel, User as UserModel, Subtask as SubtaskModel
@@ -34,6 +35,10 @@ async def _get_project_with_subtasks(db: AsyncSession, project_id: str):
     )
     res = await db.execute(q)
     return res.scalars().first()
+
+
+def _touch(project: ProjectModel):
+    project.updated_at = datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
 
 
 def _create_subtasks(project: ProjectModel, items: List[dict], db: AsyncSession):
@@ -93,7 +98,11 @@ async def create_project(payload: ProjectCreate, db: AsyncSession = Depends(get_
 
 @router.get("/projects", response_model=List[ProjectRead])
 async def list_projects(db: AsyncSession = Depends(get_session)):
-    q = select(ProjectModel).options(selectinload(ProjectModel.subtasks))
+    q = (
+        select(ProjectModel)
+        .options(selectinload(ProjectModel.subtasks))
+        .order_by(desc(func.coalesce(ProjectModel.updated_at, ProjectModel.created_at)))
+    )
     res = await db.execute(q)
     projects = res.scalars().all()
     return projects
@@ -120,6 +129,7 @@ async def update_project(
     updates = payload.model_dump(exclude_unset=True)
     for field, value in updates.items():
         setattr(project, field, value)
+    _touch(project)
 
     await db.flush()
     return await _get_project_with_subtasks(db, project_id)
@@ -156,6 +166,7 @@ async def create_subtask(
         order_index=len(project.subtasks),
     )
     db.add(subtask)
+    _touch(project)
     await db.flush()
     return subtask
 
@@ -173,6 +184,7 @@ async def redecompose_project(project_id: str, db: AsyncSession = Depends(get_se
     await db.flush()
 
     await _decompose_project(project, db)
+    _touch(project)
     await db.flush()
 
     return await _get_project_with_subtasks(db, project_id)
@@ -257,6 +269,7 @@ async def merge_subtasks_endpoint(
             s.position = i
             s.order_index = i
 
+    _touch(project)
     await db.flush()
     return await _get_project_with_subtasks(db, project_id)
 
@@ -278,6 +291,7 @@ async def reorder_subtasks(
             subtask.position = new_pos
             subtask.order_index = new_pos
 
+    _touch(project)
     await db.flush()
     return await _get_project_with_subtasks(db, project_id)
 
@@ -323,6 +337,7 @@ async def split_subtask_endpoint(subtask_id: str, db: AsyncSession = Depends(get
         db.add(new_subtask)
 
     await db.delete(subtask)
+    _touch(project)
     await db.flush()
 
     return await _get_project_with_subtasks(db, str(project.id))

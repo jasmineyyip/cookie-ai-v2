@@ -19,6 +19,7 @@ export type Project = {
   raw_instructions: string | null
   status: 'decomposing' | 'ready' | 'failed'
   created_at: string
+  updated_at: string | null
   subtasks: Subtask[]
 }
 
