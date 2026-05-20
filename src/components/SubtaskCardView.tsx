@@ -32,7 +32,7 @@ function formatTime(minutes: number) {
   return `${h}h ${m}m`
 }
 
-export function SubtaskCardView({ subtask, isNew, onSplit, splitPending, onEdit, onDelete, dragHandleProps, projectName }: {
+export function SubtaskCardView({ subtask, isNew, onSplit, splitPending, onEdit, onDelete, dragHandleProps, projectName, hideSplit, hideStripe }: {
   subtask: Subtask
   isNew?: boolean
   onSplit: () => void
@@ -41,6 +41,8 @@ export function SubtaskCardView({ subtask, isNew, onSplit, splitPending, onEdit,
   onDelete: () => void
   dragHandleProps?: React.HTMLAttributes<HTMLDivElement>
   projectName?: string
+  hideSplit?: boolean
+  hideStripe?: boolean
 }) {
   const priorityKey = DIFFICULTY_TO_PRIORITY[subtask.difficulty] ?? 'medium'
   const { label, className: badgeCls } = PRIORITY_CONFIG[priorityKey]
@@ -49,24 +51,26 @@ export function SubtaskCardView({ subtask, isNew, onSplit, splitPending, onEdit,
 
   return (
     <Card className="relative overflow-hidden gap-0 py-0 shadow-none border-border group">
-      <div
-        {...dragHandleProps}
-        className={cn(
-          'absolute left-0 top-0 bottom-0 w-1.5 rounded-l-xl',
-          dragHandleProps ? 'cursor-grab active:cursor-grabbing' : 'cursor-default',
-          isNew ? 'stripe-new' : 'bg-blue-border'
-        )}
-      />
-      <CardContent className="pl-5 pr-3 py-3 flex flex-col gap-1.5">
+      {!hideStripe && (
+        <div
+          {...dragHandleProps}
+          className={cn(
+            'absolute left-0 top-0 bottom-0 w-1.5 rounded-l-xl',
+            dragHandleProps ? 'cursor-grab active:cursor-grabbing' : 'cursor-default',
+            isNew ? 'stripe-new' : 'bg-blue-border'
+          )}
+        />
+      )}
+      <CardContent className={cn('pr-3 py-3 flex flex-col gap-1.5', hideStripe ? 'pl-3' : 'pl-5')}>
         <p className="text-sm font-semibold text-foreground leading-snug">{subtask.title}</p>
-        <p className="text-xs text-muted-foreground leading-relaxed">{subtask.description}</p>
+        <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">{subtask.description}</p>
         {badgeColor && (
           <div>
             <Badge
-              className="rounded-sm px-2 py-0.5 border-0"
+              className="rounded-sm px-2 py-0.5 text-xs font-medium border-0"
               style={{ backgroundColor: badgeColor, color: '#172B4D' }}
             >
-              <span className="text-[10px] font-bold uppercase tracking-wide">{projectName}</span>
+              {projectName}
             </Badge>
           </div>
         )}
@@ -79,9 +83,11 @@ export function SubtaskCardView({ subtask, isNew, onSplit, splitPending, onEdit,
             </div>
           </div>
           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-            <Button variant="ghost" size="icon" className="size-7 text-muted-foreground hover:text-foreground" disabled={splitPending} onClick={onSplit}>
-              {splitPending ? <Loader2 className="size-3.5 animate-spin" /> : <Scissors className="size-3.5" />}
-            </Button>
+            {!hideSplit && (
+              <Button variant="ghost" size="icon" className="size-7 text-muted-foreground hover:text-foreground" disabled={splitPending} onClick={onSplit}>
+                {splitPending ? <Loader2 className="size-3.5 animate-spin" /> : <Scissors className="size-3.5" />}
+              </Button>
+            )}
             <Button variant="ghost" size="icon" className="size-7 text-muted-foreground hover:text-foreground" onClick={onEdit}>
               <Pencil className="size-3.5" />
             </Button>
