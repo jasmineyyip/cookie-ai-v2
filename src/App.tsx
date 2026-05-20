@@ -637,7 +637,6 @@ function AddProjectModal({ open, onClose, onSuccess }: { open: boolean; onClose:
             onChange={(e) => { setName(e.target.value); setNameError('') }}
             aria-invalid={!!nameError}
             disabled={pending}
-            autoFocus
           />
           <FieldError message={nameError} />
           {mutation.isError && <p className="text-xs text-destructive mt-1">{String(mutation.error)}</p>}
