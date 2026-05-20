@@ -125,3 +125,10 @@ export function deleteSubtask(subtaskId: string) {
 export function splitSubtask(subtaskId: string) {
   return request<Project>(`/api/subtasks/${subtaskId}/split`, { method: 'POST' })
 }
+
+export function reorderSubtasks(projectId: string, items: { id: string; position: number }[]) {
+  return request<Project>(`/api/projects/${projectId}/subtasks/reorder`, {
+    method: 'POST',
+    body: JSON.stringify(items),
+  })
+}

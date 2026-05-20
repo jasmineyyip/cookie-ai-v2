@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider, useMutation, useQuery, useQueryClient
 import { Wand2, Trash2, Pencil, Clock, CirclePlus, CircleUserRound, Scissors, GitMerge, Loader2 } from 'lucide-react'
 import {
   createProject, createSubtask, deleteProject, deleteSubtask,
-  getProject, listProjects, redecomposeProject, updateProject, updateSubtask, splitSubtask,
+  getProject, listProjects, redecomposeProject, updateProject, updateSubtask, splitSubtask, reorderSubtasks,
 } from './api'
 import type { Project, Subtask } from './api'
 import { Button } from '@/components/ui/button'
@@ -26,6 +26,10 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
+import { DndContext, PointerSensor, useSensor, useSensors, closestCenter } from '@dnd-kit/core'
+import type { DragEndEvent } from '@dnd-kit/core'
+import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import './App.css'
 
 const queryClient = new QueryClient()
@@ -373,13 +377,16 @@ function SubtasksPanel({ projectId, onAdd, onEdit, onDelete }: {
     enabled: Boolean(projectId),
   })
 
-  const subtasks = project?.subtasks ?? []
+  const serverSubtasks = project?.subtasks ?? []
+  const [orderedSubtasks, setOrderedSubtasks] = useState<Subtask[]>([])
+
+  useEffect(() => { setOrderedSubtasks(serverSubtasks) }, [project?.subtasks]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const prevIdsRef = useRef<Set<string>>(new Set())
   const [newIds, setNewIds] = useState<Set<string>>(new Set())
 
   useEffect(() => {
-    const currentIds = new Set(subtasks.map((s) => String(s.id)))
+    const currentIds = new Set(serverSubtasks.map((s) => String(s.id)))
     const prev = prevIdsRef.current
     prevIdsRef.current = currentIds
     if (prev.size === 0) return
@@ -388,7 +395,21 @@ function SubtasksPanel({ projectId, onAdd, onEdit, onDelete }: {
     setNewIds(new Set(appeared))
     const timer = setTimeout(() => setNewIds(new Set()), 3500)
     return () => clearTimeout(timer)
-  }, [subtasks])
+  }, [project?.subtasks])
+
+  const qc = useQueryClient()
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+    const oldIndex = orderedSubtasks.findIndex((s) => s.id === active.id)
+    const newIndex = orderedSubtasks.findIndex((s) => s.id === over.id)
+    const reordered = arrayMove(orderedSubtasks, oldIndex, newIndex)
+    setOrderedSubtasks(reordered)
+    reorderSubtasks(projectId!, reordered.map((s, i) => ({ id: s.id, position: i })))
+      .then((updated) => qc.setQueryData(['projects', projectId], updated))
+  }
 
   return (
     <div className="w-[320px] shrink-0 border-l border-border flex flex-col">
@@ -398,13 +419,17 @@ function SubtasksPanel({ projectId, onAdd, onEdit, onDelete }: {
       </div>
       <Separator />
       <ScrollArea className="flex-1 min-h-0 px-3 py-3">
-        <div className="flex flex-col gap-3">
-          {subtasks.map((subtask) => (
-            <SubtaskCard key={subtask.id} subtask={subtask} isNew={newIds.has(String(subtask.id))} onEdit={() => onEdit(subtask)} onDelete={() => onDelete(subtask)} />
-          ))}
-        </div>
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext items={orderedSubtasks.map((s) => s.id)} strategy={verticalListSortingStrategy}>
+            <div className="flex flex-col gap-3">
+              {orderedSubtasks.map((subtask) => (
+                <SubtaskCard key={subtask.id} subtask={subtask} isNew={newIds.has(String(subtask.id))} onEdit={() => onEdit(subtask)} onDelete={() => onDelete(subtask)} />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
       </ScrollArea>
-      {subtasks.length > 0 && (
+      {orderedSubtasks.length > 0 && (
         <div className="p-3 border-t border-border">
           <Button className="w-full" onClick={onAdd}>
             <CirclePlus className="size-4" />
@@ -422,6 +447,9 @@ function SubtaskCard({ subtask, isNew, onEdit, onDelete }: { subtask: Subtask; i
   const { label, className: badgeCls } = PRIORITY_CONFIG[priorityKey]
   const timeStr = formatTime(subtask.estimated_minutes)
 
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: subtask.id })
+  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 }
+
   const splitMutation = useMutation({
     mutationFn: () => splitSubtask(subtask.id),
     onSuccess: (updated) => {
@@ -431,8 +459,8 @@ function SubtaskCard({ subtask, isNew, onEdit, onDelete }: { subtask: Subtask; i
   })
 
   return (
-    <Card className="relative overflow-hidden gap-0 py-0 shadow-none border-border group">
-      <div className={cn('absolute left-0 top-0 bottom-0 w-1.5 rounded-l-xl', isNew ? 'stripe-new' : 'bg-blue-border')} />
+    <Card ref={setNodeRef} style={style} className="relative overflow-hidden gap-0 py-0 shadow-none border-border group">
+      <div {...attributes} {...listeners} className={cn('absolute left-0 top-0 bottom-0 w-1.5 rounded-l-xl cursor-grab active:cursor-grabbing', isNew ? 'stripe-new' : 'bg-blue-border')} />
       <CardContent className="pl-5 pr-3 py-3 flex flex-col gap-1.5">
         <p className="text-sm font-semibold text-foreground leading-snug">{subtask.title}</p>
         <p className="text-xs text-muted-foreground leading-relaxed">{subtask.description}</p>

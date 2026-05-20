@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends, Response, status
 from typing import List
 from uuid import UUID
-from app.schemas import ProjectCreate, ProjectRead, ProjectUpdate, SubtaskCreate, SubtaskRead, SubtaskUpdate
+from app.schemas import ProjectCreate, ProjectRead, ProjectUpdate, SubtaskCreate, SubtaskRead, SubtaskUpdate, SubtaskReorderItem
 import logging
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -197,6 +197,27 @@ async def update_subtask(
 
     await db.flush()
     return subtask
+
+
+@router.post("/projects/{project_id}/subtasks/reorder", response_model=ProjectRead)
+async def reorder_subtasks(
+    project_id: str,
+    payload: List[SubtaskReorderItem],
+    db: AsyncSession = Depends(get_session),
+):
+    project = await _get_project_with_subtasks(db, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    id_to_position = {item.id: item.position for item in payload}
+    for subtask in project.subtasks:
+        new_pos = id_to_position.get(str(subtask.id))
+        if new_pos is not None:
+            subtask.position = new_pos
+            subtask.order_index = new_pos
+
+    await db.flush()
+    return await _get_project_with_subtasks(db, project_id)
 
 
 @router.post("/subtasks/{subtask_id}/split", response_model=ProjectRead)

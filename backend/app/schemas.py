@@ -1,4 +1,4 @@
-from typing import List, Literal, Optional
+from typing import List, Literal, Optional, Dict
 from pydantic import BaseModel, Field
 from uuid import UUID
 import datetime
@@ -38,6 +38,11 @@ class SubtaskRead(SubtaskBase):
     created_at: datetime.datetime
 
     model_config = {"from_attributes": True}
+
+
+class SubtaskReorderItem(BaseModel):
+    id: str
+    position: int
 
 
 class ProjectCreate(BaseModel):
