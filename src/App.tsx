@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { QueryClient, QueryClientProvider, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Wand2, Trash2, Pencil, Clock, CirclePlus, CircleUserRound } from 'lucide-react'
+import { Wand2, Trash2, Pencil, Clock, CirclePlus, CircleUserRound, Scissors, GitMerge } from 'lucide-react'
 import {
   createProject, createSubtask, deleteProject, deleteSubtask,
   getProject, listProjects, redecomposeProject, updateProject, updateSubtask,
@@ -170,7 +170,7 @@ function ProjectsPanel({ selectedId, onSelect, onAdd, onDelete }: {
       </div>
       <Separator />
       <ScrollArea className="flex-1 min-h-0 px-2 py-2">
-        <div className="flex flex-col gap-0.5">
+        <div className="flex flex-col gap-1.5">
           {projects.map((project) => (
             <div key={project.id} className="group relative flex items-center">
               <button
@@ -641,6 +641,16 @@ function AddSubtaskModal({ open, projectId, onClose }: { open: boolean; projectI
           hours={hours} setHours={setHours}
           minutes={mins} setMinutes={setMins}
         />
+        <div className="flex flex-col gap-0.5 mt-0.5">
+          <button className="flex items-center gap-1 text-xs text-slate hover:underline w-fit">
+            <Scissors className="size-3" />
+            Split this task further
+          </button>
+          <button className="flex items-center gap-1 text-xs text-slate hover:underline w-fit">
+            <GitMerge className="size-3" />
+            Merge this task with another one
+          </button>
+        </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={mutation.isPending}>Cancel</Button>
           <Button onClick={handleSubmit} disabled={mutation.isPending}>
@@ -690,6 +700,16 @@ function EditSubtaskModal({ open, subtask, onClose }: { open: boolean; subtask: 
           hours={hours} setHours={setHours}
           minutes={mins} setMinutes={setMins}
         />
+        <div className="flex flex-col gap-0.5 mt-0.5">
+          <button className="flex items-center gap-1 text-xs text-slate hover:underline w-fit">
+            <Scissors className="size-3" />
+            Split this task further
+          </button>
+          <button className="flex items-center gap-1 text-xs text-slate hover:underline w-fit">
+            <GitMerge className="size-3" />
+            Merge this task with another one
+          </button>
+        </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={mutation.isPending}>Cancel</Button>
           <Button onClick={handleSubmit} disabled={mutation.isPending}>
