@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { QueryClient, QueryClientProvider, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Wand2, Trash2, Pencil, Clock, CirclePlus, CircleUserRound, Scissors, GitMerge, Loader2, Check, Download } from 'lucide-react'
+import { Wand2, Trash2, Pencil, Clock, CirclePlus, Scissors, GitMerge, Loader2, Check, Download } from 'lucide-react'
 import {
   createProject, createSubtask, deleteProject, deleteSubtask,
   getProject, listProjects, redecomposeProject, updateProject, updateSubtask, splitSubtask, reorderSubtasks, mergeSubtasks,
@@ -26,6 +26,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
+import { Navbar } from '@/components/Navbar'
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, closestCenter } from '@dnd-kit/core'
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
@@ -121,32 +122,6 @@ function App() {
         <DeleteSubtaskModal open={modal === 'delete-subtask'} subtask={activeSubtask} onClose={closeModal} />
       )}
     </QueryClientProvider>
-  )
-}
-
-// ── Navbar ────────────────────────────────────────────
-
-function Navbar() {
-  const disabledLinks = ['Calendar', 'Dashboard']
-  return (
-    <nav className="flex justify-between items-center px-5 h-[65px] border-b border-border bg-background">
-      <div className="flex items-center gap-6">
-        <a href="/"><img src="/cookie-ai-logo.png" alt="Cookie AI" className="w-8 h-8" /></a>
-        <div className="flex items-center gap-1">
-          {disabledLinks.map((label) => (
-            <Button key={label} variant="ghost" size="sm" disabled className="text-muted-foreground/40 cursor-not-allowed">
-              {label}
-            </Button>
-          ))}
-        </div>
-      </div>
-      <div className="flex items-center gap-3">
-        <span className="text-sm text-muted-foreground">Hi, Jasmine!</span>
-        <a href="/account">
-          <CircleUserRound className="size-7 text-amber" />
-        </a>
-      </div>
-    </nav>
   )
 }
 
