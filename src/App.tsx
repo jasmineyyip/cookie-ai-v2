@@ -387,14 +387,12 @@ function SubtasksPanel({
             ))}
           </div>
 
-          <button
-            className="add-task-button"
-            onClick={onAdd}
-            disabled={!projectId}
-          >
-            <i className="fa-solid fa-plus"></i>
-            <span>Add a subtask</span>
-          </button>
+          {subtasks.length > 0 && (
+            <button className="add-task-button" onClick={onAdd}>
+              <i className="fa-solid fa-plus"></i>
+              <span>Add a subtask</span>
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -476,11 +474,10 @@ function AddProjectModal({
 }) {
   const qc = useQueryClient()
   const [name, setName] = useState('')
-  const [desc, setDesc] = useState('')
-  const [errors, setErrors] = useState<{ name?: string; desc?: string }>({})
+  const [nameError, setNameError] = useState('')
 
   const mutation = useMutation({
-    mutationFn: () => createProject({ title: name, instructions: desc }),
+    mutationFn: () => createProject({ title: name }),
     onSuccess: (project) => {
       qc.invalidateQueries({ queryKey: ['projects'] })
       onSuccess(project.id)
@@ -488,10 +485,7 @@ function AddProjectModal({
   })
 
   function handleSubmit() {
-    const e: typeof errors = {}
-    if (!name.trim()) e.name = 'Project name is required'
-    if (!desc.trim()) e.desc = 'Project description is required'
-    if (Object.keys(e).length) { setErrors(e); return }
+    if (!name.trim()) { setNameError('Project name is required'); return }
     mutation.mutate()
   }
 
@@ -508,21 +502,11 @@ function AddProjectModal({
           type="text"
           placeholder="Project Name"
           value={name}
-          onChange={(e) => { setName(e.target.value); setErrors((prev) => ({ ...prev, name: undefined })) }}
-          className={errors.name ? 'field-error' : ''}
+          onChange={(e) => { setName(e.target.value); setNameError('') }}
+          className={nameError ? 'field-error' : ''}
           disabled={pending}
         />
-        {errors.name && <p className="error-message"><i className="fa-solid fa-exclamation-circle"></i>{errors.name}</p>}
-      </div>
-      <div className="field">
-        <textarea
-          placeholder="Project Description"
-          value={desc}
-          onChange={(e) => { setDesc(e.target.value); setErrors((prev) => ({ ...prev, desc: undefined })) }}
-          className={errors.desc ? 'field-error' : ''}
-          disabled={pending}
-        />
-        {errors.desc && <p className="error-message"><i className="fa-solid fa-exclamation-circle"></i>{errors.desc}</p>}
+        {nameError && <p className="error-message"><i className="fa-solid fa-exclamation-circle"></i>{nameError}</p>}
       </div>
       <div className="buttons">
         <button className="confirm-button" onClick={handleSubmit} disabled={pending}>

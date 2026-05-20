@@ -23,7 +23,7 @@ export type Project = {
 
 export type ProjectCreate = {
   title: string
-  instructions: string
+  instructions?: string
 }
 
 export type ProjectUpdate = {

@@ -53,7 +53,11 @@ def _create_subtasks(project: ProjectModel, items: List[dict], db: AsyncSession)
 
 async def _decompose_project(project: ProjectModel, db: AsyncSession):
     try:
-        items = decompose(project.raw_instructions or project.title or "")
+        if not project.raw_instructions or not project.raw_instructions.strip():
+            project.status = "ready"
+            return
+
+        items = decompose(project.raw_instructions)
         if not items:
             raise ValueError("Decomposition returned no subtasks")
 
@@ -78,13 +82,10 @@ async def create_project(payload: ProjectCreate, db: AsyncSession = Depends(get_
     project = ProjectModel(
         user_id=user.id,
         title=payload.title,
-        raw_instructions=payload.instructions,
-        status="decomposing",
+        raw_instructions=payload.instructions or None,
+        status="ready",
     )
     db.add(project)
-    await db.flush()
-
-    await _decompose_project(project, db)
     await db.flush()
 
     return await _get_project_with_subtasks(db, project.id)
