@@ -135,6 +135,10 @@ function ProjectsPanel({ selectedId, onSelect, onAdd, onDelete }: {
 }) {
   const { data: projects = [] } = useQuery({ queryKey: ['projects'], queryFn: listProjects })
 
+  useEffect(() => {
+    if (!selectedId && projects.length > 0) onSelect(projects[0].id)
+  }, [projects, selectedId, onSelect])
+
   return (
     <div className="w-[240px] shrink-0 border-r border-border flex flex-col">
       <div className="flex justify-between items-center px-4 py-4">
