@@ -177,6 +177,74 @@ def split_subtask(title: str, description: str, estimated_minutes: int, difficul
         ]
 
 
+MERGE_TOOL = {
+    "name": "merge_subtasks",
+    "description": "Merge multiple subtasks into a single cohesive subtask that covers all the work.",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "title": {"type": "string"},
+            "description": {"type": "string"},
+            "estimated_minutes": {"type": "integer", "minimum": 5},
+            "difficulty": {"enum": ["easy", "medium", "hard"]},
+        },
+        "required": ["title", "description", "estimated_minutes", "difficulty"],
+    },
+}
+
+MERGE_SYSTEM_PROMPT = """You are an expert project manager. You will be given multiple subtasks and must merge them into one cohesive subtask covering all the work.
+
+The merged subtask should:
+- Have a concise title capturing the combined scope
+- Have a unified description covering all the work
+- Have estimated_minutes roughly equal to the sum (reduce slightly if there's overlap)
+- Have difficulty equal to the highest difficulty among the inputs"""
+
+
+def merge_subtasks(subtasks: List[Dict]) -> Dict:
+    api_key = os.getenv("ANTHROPIC_API_KEY") or os.getenv("CLAUDE_API_KEY")
+    total_minutes = sum(s.get("estimated_minutes", 30) for s in subtasks)
+    difficulties = ["easy", "medium", "hard"]
+    max_difficulty = max((s.get("difficulty", "medium") for s in subtasks), key=lambda d: difficulties.index(d))
+
+    if not api_key:
+        return {
+            "title": " + ".join(s.get("title", "") for s in subtasks),
+            "description": "\n".join(s.get("description", "") for s in subtasks if s.get("description")),
+            "estimated_minutes": total_minutes,
+            "difficulty": max_difficulty,
+        }
+
+    items_text = "\n".join(
+        f"{i+1}. {s['title']} ({s.get('estimated_minutes', 30)} min, {s.get('difficulty', 'medium')}): {s.get('description', '')}"
+        for i, s in enumerate(subtasks)
+    )
+    user_message = f"Merge these subtasks into one:\n\n{items_text}"
+
+    try:
+        client = Anthropic(api_key=api_key)
+        response = client.messages.create(
+            model=os.getenv("CLAUDE_MODEL", DEFAULT_CLAUDE_MODEL),
+            max_tokens=512,
+            system=MERGE_SYSTEM_PROMPT,
+            tools=[MERGE_TOOL],
+            tool_choice={"type": "tool", "name": "merge_subtasks"},
+            messages=[{"role": "user", "content": user_message}],
+        )
+        for block in response.content:
+            if block.type == "tool_use" and block.name == "merge_subtasks":
+                return block.input
+        raise ValueError("No merge_subtasks tool call in response")
+    except Exception as e:
+        print(f"Claude merge_subtasks failed: {e}")
+        return {
+            "title": " + ".join(s.get("title", "") for s in subtasks),
+            "description": "\n".join(s.get("description", "") for s in subtasks if s.get("description")),
+            "estimated_minutes": total_minutes,
+            "difficulty": max_difficulty,
+        }
+
+
 def decompose(summary: str) -> List[Dict]:
     # call claude via tool-use to decompose a project
     api_key = os.getenv("ANTHROPIC_API_KEY") or os.getenv("CLAUDE_API_KEY")

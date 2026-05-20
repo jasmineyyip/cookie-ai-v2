@@ -40,6 +40,10 @@ class SubtaskRead(SubtaskBase):
     model_config = {"from_attributes": True}
 
 
+class SubtaskMergeRequest(BaseModel):
+    subtask_ids: List[str]
+
+
 class SubtaskReorderItem(BaseModel):
     id: str
     position: int

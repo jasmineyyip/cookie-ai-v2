@@ -132,3 +132,10 @@ export function reorderSubtasks(projectId: string, items: { id: string; position
     body: JSON.stringify(items),
   })
 }
+
+export function mergeSubtasks(projectId: string, subtaskIds: string[]) {
+  return request<Project>(`/api/projects/${projectId}/subtasks/merge`, {
+    method: 'POST',
+    body: JSON.stringify({ subtask_ids: subtaskIds }),
+  })
+}

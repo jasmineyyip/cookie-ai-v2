@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { QueryClient, QueryClientProvider, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Wand2, Trash2, Pencil, Clock, CirclePlus, CircleUserRound, Scissors, GitMerge, Loader2 } from 'lucide-react'
+import { Wand2, Trash2, Pencil, Clock, CirclePlus, CircleUserRound, Scissors, GitMerge, Loader2, Check } from 'lucide-react'
 import {
   createProject, createSubtask, deleteProject, deleteSubtask,
-  getProject, listProjects, redecomposeProject, updateProject, updateSubtask, splitSubtask, reorderSubtasks,
+  getProject, listProjects, redecomposeProject, updateProject, updateSubtask, splitSubtask, reorderSubtasks, mergeSubtasks,
 } from './api'
 import type { Project, Subtask } from './api'
 import { Button } from '@/components/ui/button'
@@ -115,7 +115,7 @@ function App() {
         <AddSubtaskModal open={modal === 'add-subtask'} projectId={selectedId} onClose={closeModal} />
       )}
       {activeSubtask && (
-        <EditSubtaskModal open={modal === 'edit-subtask'} subtask={activeSubtask} onClose={closeModal} />
+        <EditSubtaskModal open={modal === 'edit-subtask'} subtask={activeSubtask} projectId={selectedId!} onClose={closeModal} />
       )}
       {activeSubtask && (
         <DeleteSubtaskModal open={modal === 'delete-subtask'} subtask={activeSubtask} onClose={closeModal} />
@@ -711,7 +711,7 @@ function AddSubtaskModal({ open, projectId, onClose }: { open: boolean; projectI
 
 // ── Edit Subtask modal ────────────────────────────────
 
-function EditSubtaskModal({ open, subtask, onClose }: { open: boolean; subtask: Subtask; onClose: () => void }) {
+function EditSubtaskModal({ open, subtask, projectId, onClose }: { open: boolean; subtask: Subtask; projectId: string; onClose: () => void }) {
   const qc = useQueryClient()
   const [name, setName] = useState(subtask.title)
   const [desc, setDesc] = useState(subtask.description ?? '')
@@ -719,6 +719,7 @@ function EditSubtaskModal({ open, subtask, onClose }: { open: boolean; subtask: 
   const [hours, setHours] = useState(Math.floor(subtask.estimated_minutes / 60))
   const [mins, setMins] = useState(subtask.estimated_minutes % 60)
   const [nameError, setNameError] = useState('')
+  const [showMerge, setShowMerge] = useState(false)
 
   const mutation = useMutation({
     mutationFn: () => updateSubtask(subtask.id, {
@@ -746,36 +747,136 @@ function EditSubtaskModal({ open, subtask, onClose }: { open: boolean; subtask: 
   }
 
   return (
-    <Dialog open={open} onOpenChange={(o) => { if (!o && !busy) onClose() }}>
+    <>
+      <Dialog open={open && !showMerge} onOpenChange={(o) => { if (!o && !busy) onClose() }}>
+        <DialogContent showCloseButton={false}>
+          <DialogHeader>
+            <DialogTitle>Edit subtask</DialogTitle>
+          </DialogHeader>
+          <SubtaskFormFields
+            name={name} setName={(v) => { setName(v); setNameError('') }} nameError={nameError}
+            desc={desc} setDesc={setDesc}
+            priority={priority} setPriority={setPriority}
+            hours={hours} setHours={setHours}
+            minutes={mins} setMinutes={setMins}
+          />
+          <div className="flex flex-col gap-0.5 mt-0.5">
+            <button
+              className="flex items-center gap-1 text-xs text-slate hover:underline w-fit disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={busy}
+              onClick={() => splitMutation.mutate()}
+            >
+              <Scissors className="size-3" />
+              {splitMutation.isPending ? 'Splitting...' : 'Split this task further'}
+            </button>
+            <button
+              className="flex items-center gap-1 text-xs text-slate hover:underline w-fit disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={busy}
+              onClick={() => setShowMerge(true)}
+            >
+              <GitMerge className="size-3" />
+              Merge this task with another one
+            </button>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={onClose} disabled={busy}>Cancel</Button>
+            <Button onClick={handleSubmit} disabled={busy}>
+              {mutation.isPending ? 'Saving...' : 'Save changes'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <MergeSubtasksModal
+        open={showMerge}
+        currentSubtask={subtask}
+        projectId={projectId}
+        onClose={() => setShowMerge(false)}
+        onSuccess={(updated) => {
+          qc.setQueryData(['projects', projectId], updated)
+          qc.refetchQueries({ queryKey: ['projects', projectId] })
+          setShowMerge(false)
+          onClose()
+        }}
+      />
+    </>
+  )
+}
+
+// ── Merge Subtasks modal ──────────────────────────────
+
+function MergeSubtasksModal({ open, currentSubtask, projectId, onClose, onSuccess }: {
+  open: boolean
+  currentSubtask: Subtask
+  projectId: string
+  onClose: () => void
+  onSuccess: (updated: Project) => void
+}) {
+  const { data: project } = useQuery({
+    queryKey: ['projects', projectId],
+    queryFn: () => getProject(projectId),
+    enabled: open,
+  })
+
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set([currentSubtask.id]))
+
+  useEffect(() => {
+    if (open) setSelectedIds(new Set([currentSubtask.id]))
+  }, [open, currentSubtask.id])
+
+  function toggle(id: string) {
+    if (id === currentSubtask.id) return
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  const mutation = useMutation({
+    mutationFn: () => mergeSubtasks(projectId, [...selectedIds]),
+    onSuccess,
+  })
+
+  const subtasks = project?.subtasks ?? []
+  const canMerge = selectedIds.size >= 2
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o && !mutation.isPending) onClose() }}>
       <DialogContent showCloseButton={false}>
         <DialogHeader>
-          <DialogTitle>Edit subtask</DialogTitle>
+          <DialogTitle>Merge subtasks</DialogTitle>
         </DialogHeader>
-        <SubtaskFormFields
-          name={name} setName={(v) => { setName(v); setNameError('') }} nameError={nameError}
-          desc={desc} setDesc={setDesc}
-          priority={priority} setPriority={setPriority}
-          hours={hours} setHours={setHours}
-          minutes={mins} setMinutes={setMins}
-        />
-        <div className="flex flex-col gap-0.5 mt-0.5">
-          <button
-            className="flex items-center gap-1 text-xs text-slate hover:underline w-fit disabled:opacity-50 disabled:cursor-not-allowed"
-            disabled={busy}
-            onClick={() => splitMutation.mutate()}
-          >
-            <Scissors className="size-3" />
-            {splitMutation.isPending ? 'Splitting...' : 'Split this task further'}
-          </button>
-          <button className="flex items-center gap-1 text-xs text-slate hover:underline w-fit">
-            <GitMerge className="size-3" />
-            Merge this task with another one
-          </button>
+        <p className="text-sm text-muted-foreground -mt-2">Select which subtasks to merge together. Cookie will combine them into one.</p>
+        <div className="flex flex-col gap-1.5 max-h-64 overflow-y-auto">
+          {subtasks.map((subtask) => {
+            const selected = selectedIds.has(subtask.id)
+            const isCurrent = subtask.id === currentSubtask.id
+            return (
+              <button
+                key={subtask.id}
+                onClick={() => toggle(subtask.id)}
+                className={cn(
+                  'flex items-center gap-3 px-3 py-2.5 rounded-md border text-left transition-colors',
+                  selected ? 'border-primary bg-accent' : 'border-border hover:bg-secondary',
+                  isCurrent && 'cursor-default'
+                )}
+              >
+                <div className={cn(
+                  'size-4 rounded border flex items-center justify-center shrink-0',
+                  selected ? 'bg-primary border-primary' : 'border-input'
+                )}>
+                  {selected && <Check className="size-3 text-white" />}
+                </div>
+                <span className="text-sm truncate">{subtask.title}</span>
+                {isCurrent && <span className="text-xs text-muted-foreground ml-auto shrink-0">current</span>}
+              </button>
+            )
+          })}
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={busy}>Cancel</Button>
-          <Button onClick={handleSubmit} disabled={busy}>
-            {mutation.isPending ? 'Saving...' : 'Save changes'}
+          <Button variant="outline" onClick={onClose} disabled={mutation.isPending}>Cancel</Button>
+          <Button onClick={() => mutation.mutate()} disabled={!canMerge || mutation.isPending}>
+            {mutation.isPending ? 'Merging...' : `Merge ${selectedIds.size} subtasks`}
           </Button>
         </DialogFooter>
       </DialogContent>

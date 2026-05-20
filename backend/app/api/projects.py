@@ -1,14 +1,14 @@
 from fastapi import APIRouter, HTTPException, Depends, Response, status
 from typing import List
 from uuid import UUID
-from app.schemas import ProjectCreate, ProjectRead, ProjectUpdate, SubtaskCreate, SubtaskRead, SubtaskUpdate, SubtaskReorderItem
+from app.schemas import ProjectCreate, ProjectRead, ProjectUpdate, SubtaskCreate, SubtaskRead, SubtaskUpdate, SubtaskReorderItem, SubtaskMergeRequest
 import logging
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from app.db.session import get_session
 from app.db.models import Project as ProjectModel, User as UserModel, Subtask as SubtaskModel
-from app.llm.claude import decompose, split_subtask
+from app.llm.claude import decompose, split_subtask, merge_subtasks
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -197,6 +197,68 @@ async def update_subtask(
 
     await db.flush()
     return subtask
+
+
+@router.post("/projects/{project_id}/subtasks/merge", response_model=ProjectRead)
+async def merge_subtasks_endpoint(
+    project_id: str,
+    payload: SubtaskMergeRequest,
+    db: AsyncSession = Depends(get_session),
+):
+    project = await _get_project_with_subtasks(db, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    merge_id_set = set(payload.subtask_ids)
+    subtasks_to_merge = [s for s in project.subtasks if str(s.id) in merge_id_set]
+    if len(subtasks_to_merge) < 2:
+        raise HTTPException(status_code=400, detail="At least 2 subtasks required")
+
+    subtasks_to_merge.sort(key=lambda s: s.position)
+    insert_position = subtasks_to_merge[0].position
+
+    merged = merge_subtasks([{
+        "title": s.title,
+        "description": s.description or "",
+        "estimated_minutes": s.estimated_minutes,
+        "difficulty": s.difficulty,
+    } for s in subtasks_to_merge])
+
+    # Build new ordered list with a None placeholder where merged task goes
+    all_sorted = sorted(project.subtasks, key=lambda s: s.position)
+    new_order = []
+    placeholder_inserted = False
+    for s in all_sorted:
+        if str(s.id) in merge_id_set:
+            if not placeholder_inserted:
+                new_order.append(None)
+                placeholder_inserted = True
+        else:
+            new_order.append(s)
+
+    for s in subtasks_to_merge:
+        await db.delete(s)
+
+    merged_idx = new_order.index(None)
+    new_subtask = SubtaskModel(
+        project_id=project.id,
+        title=merged.get("title", "Merged task"),
+        description=merged.get("description"),
+        estimated_minutes=merged.get("estimated_minutes", sum(s.estimated_minutes for s in subtasks_to_merge)),
+        difficulty=merged.get("difficulty", "medium"),
+        status="todo",
+        position=merged_idx,
+        order_index=merged_idx,
+    )
+    db.add(new_subtask)
+
+    for i, s in enumerate(new_order):
+        if s is not None:
+            s.position = i
+            s.order_index = i
+
+    await db.flush()
+    return await _get_project_with_subtasks(db, project_id)
 
 
 @router.post("/projects/{project_id}/subtasks/reorder", response_model=ProjectRead)
