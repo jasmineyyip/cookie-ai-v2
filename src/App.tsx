@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { QueryClient, QueryClientProvider, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Wand2, Trash2, Pencil, Clock, CirclePlus, CircleUserRound, Scissors, GitMerge } from 'lucide-react'
+import { Wand2, Trash2, Pencil, Clock, CirclePlus, CircleUserRound, Scissors, GitMerge, Loader2 } from 'lucide-react'
 import {
   createProject, createSubtask, deleteProject, deleteSubtask,
   getProject, listProjects, redecomposeProject, updateProject, updateSubtask, splitSubtask,
@@ -417,9 +417,18 @@ function SubtasksPanel({ projectId, onAdd, onEdit, onDelete }: {
 }
 
 function SubtaskCard({ subtask, isNew, onEdit, onDelete }: { subtask: Subtask; isNew?: boolean; onEdit: () => void; onDelete: () => void }) {
+  const qc = useQueryClient()
   const priorityKey = DIFFICULTY_TO_PRIORITY[subtask.difficulty] ?? 'medium'
   const { label, className: badgeCls } = PRIORITY_CONFIG[priorityKey]
   const timeStr = formatTime(subtask.estimated_minutes)
+
+  const splitMutation = useMutation({
+    mutationFn: () => splitSubtask(subtask.id),
+    onSuccess: (updated) => {
+      qc.setQueryData(['projects', String(updated.id)], updated)
+      qc.refetchQueries({ queryKey: ['projects', String(updated.id)] })
+    },
+  })
 
   return (
     <Card className="relative overflow-hidden gap-0 py-0 shadow-none border-border group">
@@ -436,6 +445,11 @@ function SubtaskCard({ subtask, isNew, onEdit, onDelete }: { subtask: Subtask; i
             </div>
           </div>
           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <Button variant="ghost" size="icon" className="size-7 text-muted-foreground hover:text-foreground" disabled={splitMutation.isPending} onClick={() => splitMutation.mutate()}>
+              {splitMutation.isPending
+                ? <Loader2 className="size-3.5 animate-spin" />
+                : <Scissors className="size-3.5" />}
+            </Button>
             <Button variant="ghost" size="icon" className="size-7 text-muted-foreground hover:text-foreground" onClick={onEdit}>
               <Pencil className="size-3.5" />
             </Button>
