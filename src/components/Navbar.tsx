@@ -4,6 +4,7 @@ import { useLocation } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 
 const NAV_LINKS = [
+  { label: 'Task Planner', href: '/', disabled: false },
   { label: 'Calendar', href: '/calendar', disabled: true },
   { label: 'Dashboard', href: '/dashboard', disabled: false },
 ]
@@ -13,7 +14,7 @@ export function Navbar() {
   return (
     <nav className="flex justify-between items-center px-5 h-[65px] border-b border-border bg-background">
       <div className="flex items-center gap-6">
-        <a href="/"><img src="/cookie-ai-logo.png" alt="Cookie AI" className="w-8 h-8" /></a>
+        <img src="/cookie-ai-logo.png" alt="Cookie AI" className="w-8 h-8" />
         <div className="flex items-center gap-1">
           {NAV_LINKS.map(({ label, href, disabled }) => (
             <Button
@@ -22,13 +23,7 @@ export function Navbar() {
               size="sm"
               disabled={disabled}
               asChild={!disabled}
-              className={cn(
-                disabled
-                  ? 'text-muted-foreground/40 cursor-not-allowed'
-                  : pathname === href
-                  ? 'text-foreground'
-                  : 'text-muted-foreground'
-              )}
+              className={cn(!disabled && pathname === href && 'bg-accent')}
             >
               {disabled ? <span>{label}</span> : <a href={href}>{label}</a>}
             </Button>
