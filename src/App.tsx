@@ -12,6 +12,11 @@ import {
   updateSubtask,
 } from './api'
 import type { Project, Subtask } from './api'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { Dialog, DialogContent, DialogTitle, DialogClose } from '@/components/ui/dialog'
+import { cn } from '@/lib/utils'
 import './App.css'
 
 const queryClient = new QueryClient()
@@ -62,7 +67,7 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <Navbar />
-      <div className="columns">
+      <div className="flex justify-between min-h-[calc(100vh-70px)]">
         <ProjectsPanel
           selectedId={selectedId}
           onSelect={setSelectedId}
@@ -78,14 +83,14 @@ function App() {
         />
       </div>
 
-      {modal === 'add-project' && (
-        <AddProjectModal
-          onClose={closeModal}
-          onSuccess={(id) => { setSelectedId(id); closeModal() }}
-        />
-      )}
-      {modal === 'delete-project' && projectToDelete && (
+      <AddProjectModal
+        open={modal === 'add-project'}
+        onClose={closeModal}
+        onSuccess={(id) => { setSelectedId(id); closeModal() }}
+      />
+      {projectToDelete && (
         <DeleteProjectModal
+          open={modal === 'delete-project'}
           project={projectToDelete}
           onClose={closeModal}
           onSuccess={() => {
@@ -94,14 +99,14 @@ function App() {
           }}
         />
       )}
-      {modal === 'add-subtask' && selectedId && (
-        <AddSubtaskModal projectId={selectedId} onClose={closeModal} />
+      {selectedId && (
+        <AddSubtaskModal open={modal === 'add-subtask'} projectId={selectedId} onClose={closeModal} />
       )}
-      {modal === 'edit-subtask' && activeSubtask && (
-        <EditSubtaskModal subtask={activeSubtask} onClose={closeModal} />
+      {activeSubtask && (
+        <EditSubtaskModal open={modal === 'edit-subtask'} subtask={activeSubtask} onClose={closeModal} />
       )}
-      {modal === 'delete-subtask' && activeSubtask && (
-        <DeleteSubtaskModal subtask={activeSubtask} onClose={closeModal} />
+      {activeSubtask && (
+        <DeleteSubtaskModal open={modal === 'delete-subtask'} subtask={activeSubtask} onClose={closeModal} />
       )}
     </QueryClientProvider>
   )
@@ -111,19 +116,21 @@ function App() {
 
 function Navbar() {
   return (
-    <nav className="navbar">
-      <div className="navbar-left">
-        <a href="/"><img src="/cookie-ai-logo.png" alt="Cookie AI" className="logo-img" /></a>
-        <ul>
-          <li><a href="/calendar">Calendar</a></li>
-          <li><a href="/to-do">To-do List</a></li>
-          <li><a href="/dashboard">Dashboard</a></li>
+    <nav className="flex justify-between items-center px-4 py-4 border-b-[1.5px] border-border">
+      <div className="flex items-center pl-2">
+        <a href="/"><img src="/cookie-ai-logo.png" alt="Cookie AI" className="w-[35px] h-[35px]" /></a>
+        <ul className="flex items-center pt-0.5 pl-6 m-0 list-none gap-0">
+          {['Calendar', 'To-do List', 'Dashboard'].map((item) => (
+            <li key={item} className="px-3 py-2 mr-2 rounded hover:bg-bg-hover transition-colors">
+              <a href={`/${item.toLowerCase().replace(' ', '-')}`} className="text-slate text-sm font-medium">{item}</a>
+            </li>
+          ))}
         </ul>
       </div>
-      <div className="navbar-right">
-        <p className="nav-greeting">Hi, Jasmine!</p>
+      <div className="flex items-center pr-4">
+        <p className="text-slate text-sm">Hi, Jasmine!</p>
         <a href="/account">
-          <i className="fa-solid fa-circle-user nav-user-icon"></i>
+          <i className="fa-solid fa-circle-user text-amber text-2xl ml-4"></i>
         </a>
       </div>
     </nav>
@@ -133,49 +140,44 @@ function Navbar() {
 // ── Left column: Projects ─────────────────────────────
 
 function ProjectsPanel({
-  selectedId,
-  onSelect,
-  onAdd,
-  onDelete,
+  selectedId, onSelect, onAdd, onDelete,
 }: {
   selectedId: string | null
   onSelect: (id: string) => void
   onAdd: () => void
   onDelete: (project: Project) => void
 }) {
-  const { data: projects = [] } = useQuery({
-    queryKey: ['projects'],
-    queryFn: listProjects,
-  })
+  const { data: projects = [] } = useQuery({ queryKey: ['projects'], queryFn: listProjects })
 
   return (
-    <div className="project-column">
-      <div className="projects">
-        <div className="header">
-          <h2>Projects</h2>
-          <button className="add-project" onClick={onAdd} aria-label="Add project">
-            <i className="fa-solid fa-circle-plus"></i>
-          </button>
-        </div>
-        <div className="projects-container">
-          {projects.map((project) => (
-            <div className="project-item" key={project.id}>
-              <button
-                className={`title${selectedId === project.id ? ' active' : ''}`}
-                onClick={() => onSelect(project.id)}
-              >
-                <p>{project.title}</p>
-              </button>
-              <button
-                className="delete-button"
-                onClick={(e) => { e.stopPropagation(); onDelete(project) }}
-                aria-label="Delete project"
-              >
-                <i className="fa-regular fa-trash-can"></i>
-              </button>
-            </div>
-          ))}
-        </div>
+    <div className="flex-[3] p-5 border-r-[1.5px] border-border">
+      <div className="flex justify-between items-center pb-6 pl-1 pt-1">
+        <h2 className="text-navy font-semibold text-lg pt-0.5">Projects</h2>
+        <button className="bg-transparent border-none p-0 cursor-pointer leading-none" onClick={onAdd} aria-label="Add project">
+          <i className="fa-solid fa-circle-plus text-[30px] text-blue hover:text-blue-dark transition-colors"></i>
+        </button>
+      </div>
+      <div className="flex flex-col">
+        {projects.map((project) => (
+          <div key={project.id} className="relative h-[50px] mb-1">
+            <button
+              className={cn(
+                'absolute inset-0 w-full h-full border-none rounded-[10px] flex items-center cursor-pointer transition-colors',
+                selectedId === project.id ? 'bg-active-blue' : 'bg-white hover:bg-active-blue/25'
+              )}
+              onClick={() => onSelect(project.id)}
+            >
+              <p className="text-sm text-navy mx-0 ml-2.5 mr-10 whitespace-nowrap overflow-hidden text-ellipsis text-left">{project.title}</p>
+            </button>
+            <button
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 bg-transparent border-none cursor-pointer p-1.5 leading-none z-10"
+              onClick={(e) => { e.stopPropagation(); onDelete(project) }}
+              aria-label="Delete project"
+            >
+              <i className="fa-regular fa-trash-can text-slate-light hover:text-red transition-colors"></i>
+            </button>
+          </div>
+        ))}
       </div>
     </div>
   )
@@ -198,7 +200,6 @@ function InstructionsPanel({ projectId }: { projectId: string | null }) {
   const [editingDesc, setEditingDesc] = useState(false)
   const [instructions, setInstructions] = useState('')
 
-  // Track which project's data is currently reflected in local state
   const syncedIdRef = useRef<string | null>(null)
 
   useEffect(() => {
@@ -230,7 +231,7 @@ function InstructionsPanel({ projectId }: { projectId: string | null }) {
   const redecomposeMutation = useMutation({
     mutationFn: () => redecomposeProject(projectId!),
     onSuccess: (updated) => {
-      syncedIdRef.current = null // allow re-sync after redecompose
+      syncedIdRef.current = null
       qc.setQueryData(['projects', projectId], updated)
       qc.invalidateQueries({ queryKey: ['projects'] })
     },
@@ -238,9 +239,7 @@ function InstructionsPanel({ projectId }: { projectId: string | null }) {
 
   function handleTitleBlur() {
     setEditingTitle(false)
-    if (project && titleValue !== project.title) {
-      updateMutation.mutate({ title: titleValue })
-    }
+    if (project && titleValue !== project.title) updateMutation.mutate({ title: titleValue })
   }
 
   function handleTitleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
@@ -257,87 +256,88 @@ function InstructionsPanel({ projectId }: { projectId: string | null }) {
   const noProject = !projectId
 
   return (
-    <div className="instruction-column">
-      <div className="instructions">
-        <div className="wrapper">
-          {/* Logo lockup */}
-          <div className="logo">
-            <img src="/cookie-ai-logo.png" alt="" />
-            <span>Cookie AI</span>
-          </div>
+    <div className="flex-[8] p-5">
+      <div className="w-[95%] mx-auto">
+        {/* Logo lockup */}
+        <div className="flex items-center">
+          <img src="/cookie-ai-logo.png" alt="" className="w-5 h-5 my-2.5 mr-2.5" />
+          <span className="text-xl font-semibold pt-2 text-navy">Cookie AI</span>
+        </div>
 
-          {/* Project header */}
-          <div className="header">
-            <div className="title-container">
-              {editingTitle ? (
-                <input
-                  type="text"
-                  value={titleValue}
-                  onChange={(e) => setTitleValue(e.target.value)}
-                  onBlur={handleTitleBlur}
-                  onKeyDown={handleTitleKeyDown}
-                  autoFocus
-                />
-              ) : (
-                <h2
-                  className={noProject ? 'placeholder' : ''}
-                  onClick={() => !noProject && setEditingTitle(true)}
-                >
-                  {noProject ? 'Select a project' : (titleValue || '...')}
-                </h2>
-              )}
-            </div>
-
-            <div className="desc">
-              <div className="left"><p>Description</p></div>
-              <div className="right">
-                {editingDesc ? (
-                  <textarea
-                    rows={1}
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    onBlur={() => setEditingDesc(false)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) (e.target as HTMLTextAreaElement).blur()
-                    }}
-                    autoFocus
-                  />
-                ) : (
-                  <p
-                    className={`description${!description ? ' placeholder' : ''}`}
-                    onClick={() => !noProject && setEditingDesc(true)}
-                  >
-                    {description || 'Add a description'}
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Instruction textarea */}
-          <textarea
-            className="instruction"
-            placeholder="Paste in your assignment instructions."
-            value={instructions}
-            onChange={(e) => setInstructions(e.target.value)}
-            onBlur={handleInstructionsBlur}
-            disabled={noProject}
-          />
-
-          {/* Generate button */}
-          <div className="generate">
-            <button
-              className="generate-button"
-              onClick={() => redecomposeMutation.mutate()}
-              disabled={noProject || redecomposeMutation.isPending}
-            >
-              <i className="fa-solid fa-wand-magic-sparkles"></i>
-              <p>{redecomposeMutation.isPending ? 'Generating...' : 'Generate subtasks'}</p>
-            </button>
-            {redecomposeMutation.isError && (
-              <p className="error">Generation failed. Try again.</p>
+        {/* Project header */}
+        <div className="pb-2.5">
+          {/* Title */}
+          <div className="relative inline-block">
+            {editingTitle ? (
+              <input
+                type="text"
+                value={titleValue}
+                onChange={(e) => setTitleValue(e.target.value)}
+                onBlur={handleTitleBlur}
+                onKeyDown={handleTitleKeyDown}
+                autoFocus
+                className="w-[500px] my-5 mb-[18.5px] outline-none border-none border-b-[1.5px] border-border text-navy text-xl font-semibold bg-transparent block"
+              />
+            ) : (
+              <h2
+                className={cn('text-xl font-semibold py-5 leading-snug', noProject ? 'text-slate-faint cursor-default' : 'text-navy cursor-pointer')}
+                onClick={() => !noProject && setEditingTitle(true)}
+              >
+                {noProject ? 'Select a project' : (titleValue || '...')}
+              </h2>
             )}
           </div>
+
+          {/* Description row */}
+          <div className="flex pb-5 w-full">
+            <div className="shrink-0">
+              <p className="text-sm text-navy pr-5 leading-6 whitespace-nowrap">Description</p>
+            </div>
+            <div className="w-full">
+              {editingDesc ? (
+                <textarea
+                  rows={1}
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  onBlur={() => setEditingDesc(false)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) (e.target as HTMLTextAreaElement).blur() }}
+                  autoFocus
+                  className="w-[calc(100%-16px)] rounded-md px-2 py-1 leading-6 text-slate-light text-sm resize-y border-[1.5px] border-border outline-none"
+                />
+              ) : (
+                <p
+                  className={cn('leading-6 text-sm min-h-6 cursor-pointer', description ? 'text-slate-light' : 'text-slate-faint')}
+                  onClick={() => !noProject && setEditingDesc(true)}
+                >
+                  {description || 'Add a description'}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Instructions textarea */}
+        <textarea
+          className="block w-[calc(100%-30px)] h-[300px] px-[15px] py-2.5 rounded-lg border-[1.5px] border-border shadow-[0_3px_5px_rgba(0,0,0,0.04)] resize-none text-sm leading-[26px] text-navy outline-none placeholder:text-slate-faint disabled:bg-bg-hover disabled:cursor-not-allowed"
+          placeholder="Paste in your assignment instructions."
+          value={instructions}
+          onChange={(e) => setInstructions(e.target.value)}
+          onBlur={handleInstructionsBlur}
+          disabled={noProject}
+        />
+
+        {/* Generate button */}
+        <div className="flex items-center gap-3 pt-5">
+          <Button
+            onClick={() => redecomposeMutation.mutate()}
+            disabled={noProject || redecomposeMutation.isPending}
+          >
+            <i className="fa-solid fa-wand-magic-sparkles text-sm pr-2.5 text-white"></i>
+            <p className="text-sm font-medium m-0">{redecomposeMutation.isPending ? 'Generating...' : 'Generate subtasks'}</p>
+          </Button>
+          {redecomposeMutation.isError && (
+            <p className="text-red text-[13px]">Generation failed. Try again.</p>
+          )}
         </div>
       </div>
     </div>
@@ -347,10 +347,7 @@ function InstructionsPanel({ projectId }: { projectId: string | null }) {
 // ── Right column: Subtasks ────────────────────────────
 
 function SubtasksPanel({
-  projectId,
-  onAdd,
-  onEdit,
-  onDelete,
+  projectId, onAdd, onEdit, onDelete,
 }: {
   projectId: string | null
   onAdd: () => void
@@ -366,71 +363,61 @@ function SubtasksPanel({
   const subtasks = project?.subtasks ?? []
 
   return (
-    <div className="subtask-column">
-      <div className="subtasks">
-        <div className="wrapper">
-          <div className="header">
-            <div className="title">
-              <i className="fa-solid fa-wand-magic-sparkles"></i>
-              <p>AI-generated subtasks</p>
-            </div>
+    <div className="flex-[4] p-5 border-l-[1.5px] border-border">
+      <div className="w-[95%] mx-auto">
+        <div className="flex justify-between items-center pb-5 text-xs font-medium text-slate">
+          <div className="flex items-center">
+            <i className="fa-solid fa-wand-magic-sparkles pr-2.5 text-slate-faint"></i>
+            <p className="text-slate-faint pt-0.5 text-xs">AI-generated subtasks</p>
           </div>
-
-          <div className="subtasks-container">
-            {subtasks.map((subtask) => (
-              <SubtaskCard
-                key={subtask.id}
-                subtask={subtask}
-                onEdit={() => onEdit(subtask)}
-                onDelete={() => onDelete(subtask)}
-              />
-            ))}
-          </div>
-
-          {subtasks.length > 0 && (
-            <button className="add-task-button" onClick={onAdd}>
-              <i className="fa-solid fa-plus"></i>
-              <span>Add a subtask</span>
-            </button>
-          )}
         </div>
+
+        <div className="w-[350px] max-h-[550px] overflow-y-auto pb-5 mb-5">
+          {subtasks.map((subtask) => (
+            <SubtaskCard
+              key={subtask.id}
+              subtask={subtask}
+              onEdit={() => onEdit(subtask)}
+              onDelete={() => onDelete(subtask)}
+            />
+          ))}
+        </div>
+
+        {subtasks.length > 0 && (
+          <Button onClick={onAdd}>
+            <i className="fa-solid fa-plus text-sm pr-2.5 text-white"></i>
+            <span className="font-medium text-sm">Add a subtask</span>
+          </Button>
+        )}
       </div>
     </div>
   )
 }
 
-function SubtaskCard({
-  subtask,
-  onEdit,
-  onDelete,
-}: {
-  subtask: Subtask
-  onEdit: () => void
-  onDelete: () => void
-}) {
+function SubtaskCard({ subtask, onEdit, onDelete }: { subtask: Subtask; onEdit: () => void; onDelete: () => void }) {
   const priorityKey = DIFFICULTY_TO_PRIORITY[subtask.difficulty] ?? 'medium'
   const priority = PRIORITY_MAP[priorityKey]
   const timeStr = formatTime(subtask.estimated_minutes)
 
   return (
-    <div className="subtask">
-      <div className="stripe"></div>
-      <div className="wrapper">
-        <p className="title">{subtask.title}</p>
-        <p className="description">{subtask.description}</p>
-        <div className="tools">
-          <div className="priority">
-            <p className="level" style={{ backgroundColor: priority.bg, color: priority.color }}>
+    <div className="w-[330px] relative flex bg-[#F5F7FA] rounded-lg overflow-hidden mb-5">
+      <div className="absolute left-0 top-0 bottom-0 w-2.5 bg-blue-border rounded-tl-lg rounded-bl-lg shrink-0"></div>
+      <div className="py-[15px] pr-5 pl-[25px] grow min-w-0">
+        <p className="text-sm font-semibold leading-5 text-navy">{subtask.title}</p>
+        <p className="text-xs leading-5 py-[5px] pb-[15px] text-slate-light">{subtask.description}</p>
+        <div className="flex justify-between items-center">
+          <div className="flex items-center">
+            <p className="text-xs font-medium rounded-[3px] px-2.5 py-[3px] mr-3" style={{ backgroundColor: priority.bg, color: priority.color }}>
               {priority.label}
             </p>
-            <div className="time">
-              <i className="fa-regular fa-clock"></i>
-              <p><span>{timeStr}</span> estimated</p>
+            <div className="flex items-center">
+              <i className="fa-regular fa-clock text-slate-light text-xs"></i>
+              <p className="text-slate-light text-xs pl-1.5 m-0"><span>{timeStr}</span> estimated</p>
             </div>
           </div>
-          <div className="edit">
-            <i className="fa-regular fa-pen-to-square" onClick={onEdit}></i>
-            <i className="fa-regular fa-trash-can" onClick={onDelete}></i>
+          <div className="flex items-center">
+            <i className="fa-regular fa-pen-to-square pl-2.5 text-[15px] text-slate-faint hover:text-navy transition-colors cursor-pointer" onClick={onEdit}></i>
+            <i className="fa-regular fa-trash-can pl-2.5 text-[15px] text-slate-faint hover:text-red transition-colors cursor-pointer" onClick={onDelete}></i>
           </div>
         </div>
       </div>
@@ -438,40 +425,52 @@ function SubtaskCard({
   )
 }
 
-// ── Shared popup wrapper ──────────────────────────────
+// ── Modal helpers ─────────────────────────────────────
 
-function Popup({
-  onClose,
-  narrow = false,
-  locked = false,
-  children,
-}: {
+function ModalHeader({ title, onClose, disabled }: { title: string; onClose: () => void; disabled?: boolean }) {
+  return (
+    <div className="flex justify-between items-start mb-5">
+      <DialogTitle className="text-navy text-xl font-semibold">{title}</DialogTitle>
+      <DialogClose asChild>
+        <button
+          onClick={onClose}
+          disabled={disabled}
+          className="bg-transparent border-none w-10 h-10 rounded-full translate-x-5 -translate-y-5 cursor-pointer flex items-center justify-center hover:bg-border transition-colors disabled:opacity-60"
+        >
+          <i className="fa-solid fa-xmark text-[22px] text-navy"></i>
+        </button>
+      </DialogClose>
+    </div>
+  )
+}
+
+function FieldError({ message }: { message?: string }) {
+  if (!message) return null
+  return (
+    <p className="text-xs text-red-dark pb-1 mt-1 m-0">
+      <i className="fa-solid fa-exclamation-circle mr-1"></i>{message}
+    </p>
+  )
+}
+
+function ModalButtons({ confirmLabel, onClose, onConfirm, danger, disabled }: {
+  confirmLabel: string
   onClose: () => void
-  narrow?: boolean
-  locked?: boolean
-  children: React.ReactNode
+  onConfirm?: () => void
+  danger?: boolean
+  disabled?: boolean
 }) {
   return (
-    <div className="popup-overlay" onClick={locked ? undefined : onClose}>
-      <div
-        className={`popup-content${narrow ? ' popup-narrow' : ''}`}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {children}
-      </div>
+    <div className="flex gap-2.5 mt-2.5">
+      <Button variant={danger ? 'danger' : 'primary'} onClick={onConfirm} disabled={disabled}>{confirmLabel}</Button>
+      <Button variant="secondary" onClick={onClose} disabled={disabled}>Cancel</Button>
     </div>
   )
 }
 
 // ── Add Project modal ─────────────────────────────────
 
-function AddProjectModal({
-  onClose,
-  onSuccess,
-}: {
-  onClose: () => void
-  onSuccess: (id: string) => void
-}) {
+function AddProjectModal({ open, onClose, onSuccess }: { open: boolean; onClose: () => void; onSuccess: (id: string) => void }) {
   const qc = useQueryClient()
   const [name, setName] = useState('')
   const [nameError, setNameError] = useState('')
@@ -492,68 +491,44 @@ function AddProjectModal({
   const pending = mutation.isPending
 
   return (
-    <Popup onClose={onClose} locked={pending}>
-      <div className="top">
-        <h2>Add Project</h2>
-        <button className="close" onClick={onClose} disabled={pending}><i className="fa-solid fa-xmark"></i></button>
-      </div>
-      <div className="field">
-        <input
-          type="text"
-          placeholder="Project Name"
-          value={name}
-          onChange={(e) => { setName(e.target.value); setNameError('') }}
-          className={nameError ? 'field-error' : ''}
-          disabled={pending}
-        />
-        {nameError && <p className="error-message"><i className="fa-solid fa-exclamation-circle"></i>{nameError}</p>}
-      </div>
-      <div className="buttons">
-        <button className="confirm-button" onClick={handleSubmit} disabled={pending}>
-          {pending ? 'Adding...' : 'Add Project'}
-        </button>
-        <button className="cancel-button" onClick={onClose} disabled={pending}>Cancel</button>
-      </div>
-    </Popup>
+    <Dialog open={open} onOpenChange={(o) => { if (!o && !pending) onClose() }}>
+      <DialogContent>
+        <ModalHeader title="Add Project" onClose={onClose} disabled={pending} />
+        <div className="mb-2.5">
+          <Input
+            placeholder="Project Name"
+            value={name}
+            onChange={(e) => { setName(e.target.value); setNameError('') }}
+            error={!!nameError}
+            disabled={pending}
+          />
+          <FieldError message={nameError} />
+        </div>
+        <ModalButtons confirmLabel={pending ? 'Adding...' : 'Add Project'} onClose={onClose} onConfirm={handleSubmit} disabled={pending} />
+      </DialogContent>
+    </Dialog>
   )
 }
 
 // ── Delete Project modal ──────────────────────────────
 
-function DeleteProjectModal({
-  project,
-  onClose,
-  onSuccess,
-}: {
-  project: Project
-  onClose: () => void
-  onSuccess: () => void
-}) {
+function DeleteProjectModal({ open, project, onClose, onSuccess }: { open: boolean; project: Project; onClose: () => void; onSuccess: () => void }) {
   const qc = useQueryClient()
   const mutation = useMutation({
     mutationFn: () => deleteProject(project.id),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['projects'] })
-      onSuccess()
-    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['projects'] }); onSuccess() },
   })
 
   return (
-    <Popup onClose={onClose} narrow>
-      <div className="top">
-        <h2>Delete project</h2>
-        <button className="close" onClick={onClose}><i className="fa-solid fa-xmark"></i></button>
-      </div>
-      <p className="delete-warning">
-        Once deleted, this project will no longer be accessible. This process cannot be undone.
-      </p>
-      <div className="buttons">
-        <button className="confirm-button delete-confirm" onClick={() => mutation.mutate()} disabled={mutation.isPending}>
-          Delete
-        </button>
-        <button className="cancel-button" onClick={onClose}>Cancel</button>
-      </div>
-    </Popup>
+    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose() }}>
+      <DialogContent narrow>
+        <ModalHeader title="Delete project" onClose={onClose} />
+        <p className="text-navy text-sm leading-5 mb-5">
+          Once deleted, this project will no longer be accessible. This process cannot be undone.
+        </p>
+        <ModalButtons confirmLabel="Delete" onClose={onClose} onConfirm={() => mutation.mutate()} danger disabled={mutation.isPending} />
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -574,27 +549,17 @@ function SubtaskFormFields({
 }) {
   return (
     <>
-      <div className="field">
-        <input
-          type="text"
-          placeholder="Subtask name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          className={nameError ? 'field-error' : ''}
-        />
-        {nameError && <p className="error-message"><i className="fa-solid fa-exclamation-circle"></i>{nameError}</p>}
+      <div className="mb-2.5">
+        <Input placeholder="Subtask name" value={name} onChange={(e) => setName(e.target.value)} error={!!nameError} />
+        <FieldError message={nameError} />
       </div>
-      <div className="field">
-        <textarea
-          placeholder="Subtask description"
-          value={desc}
-          onChange={(e) => setDesc(e.target.value)}
-        />
+      <div className="mb-2.5">
+        <Textarea placeholder="Subtask description" value={desc} onChange={(e) => setDesc(e.target.value)} className="h-[100px] leading-[22px]" />
       </div>
-      <div className="priority-row">
-        <i className="fa-solid fa-fire"></i>
+      <div className="flex items-center pb-5 gap-1 pt-1">
+        <i className="fa-solid fa-fire text-[#FF7452] text-lg pr-1 pt-1"></i>
         <select
-          className="level-select"
+          className="bg-bg-hover border-none rounded-[3px] text-sm font-medium text-slate px-2 py-1 mx-1 cursor-pointer"
           value={priority}
           onChange={(e) => setPriority(e.target.value as Priority)}
         >
@@ -604,16 +569,16 @@ function SubtaskFormFields({
           <option value="low">Low</option>
         </select>
       </div>
-      <div className="time-row">
-        <i className="fa-solid fa-stopwatch"></i>
-        <select value={hours} onChange={(e) => setHours(Number(e.target.value))}>
+      <div className="flex items-center gap-1 pb-5">
+        <i className="fa-solid fa-stopwatch text-slate-faint"></i>
+        <select className="bg-bg-hover border-none rounded-[3px] text-sm font-medium text-slate px-2 py-1 mx-1 cursor-pointer" value={hours} onChange={(e) => setHours(Number(e.target.value))}>
           {[0, 1, 2, 3, 4, 5].map((h) => <option key={h} value={h}>{h}</option>)}
         </select>
-        <span>hours</span>
-        <select value={minutes} onChange={(e) => setMinutes(Number(e.target.value))}>
+        <span className="text-slate-faint text-sm">hours</span>
+        <select className="bg-bg-hover border-none rounded-[3px] text-sm font-medium text-slate px-2 py-1 mx-1 cursor-pointer" value={minutes} onChange={(e) => setMinutes(Number(e.target.value))}>
           {[0, 15, 30, 45].map((m) => <option key={m} value={m}>{String(m).padStart(2, '0')}</option>)}
         </select>
-        <span>minutes</span>
+        <span className="text-slate-faint text-sm">minutes</span>
       </div>
     </>
   )
@@ -621,7 +586,7 @@ function SubtaskFormFields({
 
 // ── Add Subtask modal ─────────────────────────────────
 
-function AddSubtaskModal({ projectId, onClose }: { projectId: string; onClose: () => void }) {
+function AddSubtaskModal({ open, projectId, onClose }: { open: boolean; projectId: string; onClose: () => void }) {
   const qc = useQueryClient()
   const [name, setName] = useState('')
   const [desc, setDesc] = useState('')
@@ -632,15 +597,11 @@ function AddSubtaskModal({ projectId, onClose }: { projectId: string; onClose: (
 
   const mutation = useMutation({
     mutationFn: () => createSubtask(projectId, {
-      title: name,
-      description: desc,
+      title: name, description: desc,
       estimated_minutes: hours * 60 + mins,
       difficulty: PRIORITY_TO_DIFFICULTY[priority],
     }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['projects', projectId] })
-      onClose()
-    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['projects', projectId] }); onClose() },
   })
 
   function handleSubmit() {
@@ -649,31 +610,25 @@ function AddSubtaskModal({ projectId, onClose }: { projectId: string; onClose: (
   }
 
   return (
-    <Popup onClose={onClose}>
-      <div className="top">
-        <h2>Add a subtask</h2>
-        <button className="close" onClick={onClose}><i className="fa-solid fa-xmark"></i></button>
-      </div>
-      <SubtaskFormFields
-        name={name} setName={(v) => { setName(v); setNameError('') }} nameError={nameError}
-        desc={desc} setDesc={setDesc}
-        priority={priority} setPriority={setPriority}
-        hours={hours} setHours={setHours}
-        minutes={mins} setMinutes={setMins}
-      />
-      <div className="buttons">
-        <button className="confirm-button" onClick={handleSubmit} disabled={mutation.isPending}>
-          {mutation.isPending ? 'Adding...' : 'Add Subtask'}
-        </button>
-        <button className="cancel-button" onClick={onClose}>Cancel</button>
-      </div>
-    </Popup>
+    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose() }}>
+      <DialogContent>
+        <ModalHeader title="Add a subtask" onClose={onClose} />
+        <SubtaskFormFields
+          name={name} setName={(v) => { setName(v); setNameError('') }} nameError={nameError}
+          desc={desc} setDesc={setDesc}
+          priority={priority} setPriority={setPriority}
+          hours={hours} setHours={setHours}
+          minutes={mins} setMinutes={setMins}
+        />
+        <ModalButtons confirmLabel={mutation.isPending ? 'Adding...' : 'Add Subtask'} onClose={onClose} onConfirm={handleSubmit} disabled={mutation.isPending} />
+      </DialogContent>
+    </Dialog>
   )
 }
 
 // ── Edit Subtask modal ────────────────────────────────
 
-function EditSubtaskModal({ subtask, onClose }: { subtask: Subtask; onClose: () => void }) {
+function EditSubtaskModal({ open, subtask, onClose }: { open: boolean; subtask: Subtask; onClose: () => void }) {
   const qc = useQueryClient()
   const initialPriority = DIFFICULTY_TO_PRIORITY[subtask.difficulty] ?? 'medium'
   const [name, setName] = useState(subtask.title)
@@ -685,15 +640,11 @@ function EditSubtaskModal({ subtask, onClose }: { subtask: Subtask; onClose: () 
 
   const mutation = useMutation({
     mutationFn: () => updateSubtask(subtask.id, {
-      title: name,
-      description: desc,
+      title: name, description: desc,
       estimated_minutes: hours * 60 + mins,
       difficulty: PRIORITY_TO_DIFFICULTY[priority],
     }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['projects'] })
-      onClose()
-    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['projects'] }); onClose() },
   })
 
   function handleSubmit() {
@@ -702,56 +653,41 @@ function EditSubtaskModal({ subtask, onClose }: { subtask: Subtask; onClose: () 
   }
 
   return (
-    <Popup onClose={onClose}>
-      <div className="top">
-        <h2>Edit subtask</h2>
-        <button className="close" onClick={onClose}><i className="fa-solid fa-xmark"></i></button>
-      </div>
-      <SubtaskFormFields
-        name={name} setName={(v) => { setName(v); setNameError('') }} nameError={nameError}
-        desc={desc} setDesc={setDesc}
-        priority={priority} setPriority={setPriority}
-        hours={hours} setHours={setHours}
-        minutes={mins} setMinutes={setMins}
-      />
-      <div className="buttons">
-        <button className="confirm-button" onClick={handleSubmit} disabled={mutation.isPending}>
-          {mutation.isPending ? 'Saving...' : 'Save Changes'}
-        </button>
-        <button className="cancel-button" onClick={onClose}>Cancel</button>
-      </div>
-    </Popup>
+    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose() }}>
+      <DialogContent>
+        <ModalHeader title="Edit subtask" onClose={onClose} />
+        <SubtaskFormFields
+          name={name} setName={(v) => { setName(v); setNameError('') }} nameError={nameError}
+          desc={desc} setDesc={setDesc}
+          priority={priority} setPriority={setPriority}
+          hours={hours} setHours={setHours}
+          minutes={mins} setMinutes={setMins}
+        />
+        <ModalButtons confirmLabel={mutation.isPending ? 'Saving...' : 'Save Changes'} onClose={onClose} onConfirm={handleSubmit} disabled={mutation.isPending} />
+      </DialogContent>
+    </Dialog>
   )
 }
 
 // ── Delete Subtask modal ──────────────────────────────
 
-function DeleteSubtaskModal({ subtask, onClose }: { subtask: Subtask; onClose: () => void }) {
+function DeleteSubtaskModal({ open, subtask, onClose }: { open: boolean; subtask: Subtask; onClose: () => void }) {
   const qc = useQueryClient()
   const mutation = useMutation({
     mutationFn: () => deleteSubtask(subtask.id),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['projects'] })
-      onClose()
-    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['projects'] }); onClose() },
   })
 
   return (
-    <Popup onClose={onClose} narrow>
-      <div className="top">
-        <h2>Delete subtask</h2>
-        <button className="close" onClick={onClose}><i className="fa-solid fa-xmark"></i></button>
-      </div>
-      <p className="delete-warning">
-        Once deleted, this subtask will no longer be accessible. This process cannot be undone.
-      </p>
-      <div className="buttons">
-        <button className="confirm-button delete-confirm" onClick={() => mutation.mutate()} disabled={mutation.isPending}>
-          Delete
-        </button>
-        <button className="cancel-button" onClick={onClose}>Cancel</button>
-      </div>
-    </Popup>
+    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose() }}>
+      <DialogContent narrow>
+        <ModalHeader title="Delete subtask" onClose={onClose} />
+        <p className="text-navy text-sm leading-5 mb-5">
+          Once deleted, this subtask will no longer be accessible. This process cannot be undone.
+        </p>
+        <ModalButtons confirmLabel="Delete" onClose={onClose} onConfirm={() => mutation.mutate()} danger disabled={mutation.isPending} />
+      </DialogContent>
+    </Dialog>
   )
 }
 
