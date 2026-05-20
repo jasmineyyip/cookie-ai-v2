@@ -184,15 +184,14 @@ function ProjectsPanel({ selectedId, onSelect, onAdd, onDelete }: {
               >
                 {project.title}
               </button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="absolute right-0 size-7 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive"
+              <button
+                className="absolute right-0 size-7 opacity-0 group-hover:opacity-100 flex items-center justify-center rounded bg-transparent border-none"
+                style={{ color: '#c7372d' }}
                 onClick={(e) => { e.stopPropagation(); onDelete(project) }}
                 aria-label="Delete project"
               >
                 <Trash2 className="size-3.5" />
-              </Button>
+              </button>
             </div>
           ))}
         </div>
@@ -226,13 +225,14 @@ function InstructionsPanel({ projectId }: { projectId: string | null }) {
   useEffect(() => {
     if (project && project.id !== syncedIdRef.current) {
       setTitleValue(project.title)
+      setDescription(project.description ?? '')
       setInstructions(project.raw_instructions ?? '')
       syncedIdRef.current = project.id
     }
   }, [project])
 
   const updateMutation = useMutation({
-    mutationFn: (payload: { title?: string; raw_instructions?: string }) => updateProject(projectId!, payload),
+    mutationFn: (payload: { title?: string; description?: string; raw_instructions?: string }) => updateProject(projectId!, payload),
     onSuccess: (updated) => {
       qc.setQueryData(['projects', projectId], updated)
       qc.invalidateQueries({ queryKey: ['projects'] })
@@ -256,6 +256,12 @@ function InstructionsPanel({ projectId }: { projectId: string | null }) {
   function handleTitleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
     if (e.key === 'Escape') { setTitleValue(project?.title ?? ''); setEditingTitle(false) }
+  }
+
+  function handleDescriptionBlur() {
+    if (project && description !== (project.description ?? '')) {
+      updateMutation.mutate({ description })
+    }
   }
 
   function handleInstructionsBlur() {
@@ -304,7 +310,7 @@ function InstructionsPanel({ projectId }: { projectId: string | null }) {
             <Textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              onBlur={() => setEditingDesc(false)}
+              onBlur={() => { setEditingDesc(false); handleDescriptionBlur() }}
               onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) (e.target as HTMLTextAreaElement).blur() }}
               autoFocus
               className="min-h-0 text-sm"
@@ -331,7 +337,7 @@ function InstructionsPanel({ projectId }: { projectId: string | null }) {
           onChange={(e) => setInstructions(e.target.value)}
           onBlur={handleInstructionsBlur}
           disabled={noProject}
-          className="min-h-[260px] text-sm leading-relaxed resize-none"
+          className="min-h-[260px] max-h-[500px] text-sm leading-relaxed resize-none overflow-y-auto"
         />
       </div>
 
@@ -585,7 +591,7 @@ function DeleteProjectModal({ open, project, onClose, onSuccess }: { open: boole
         <AlertDialogFooter>
           <AlertDialogCancel onClick={onClose}>Cancel</AlertDialogCancel>
           <AlertDialogAction
-            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            variant="destructive"
             onClick={() => mutation.mutate()}
             disabled={mutation.isPending}
           >
@@ -716,7 +722,7 @@ function DeleteSubtaskModal({ open, subtask, onClose }: { open: boolean; subtask
         <AlertDialogFooter>
           <AlertDialogCancel onClick={onClose}>Cancel</AlertDialogCancel>
           <AlertDialogAction
-            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            variant="destructive"
             onClick={() => mutation.mutate()}
             disabled={mutation.isPending}
           >

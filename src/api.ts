@@ -15,6 +15,7 @@ export type Subtask = {
 export type Project = {
   id: string
   title: string
+  description: string | null
   raw_instructions: string | null
   status: 'decomposing' | 'ready' | 'failed'
   created_at: string
@@ -28,6 +29,7 @@ export type ProjectCreate = {
 
 export type ProjectUpdate = {
   title?: string
+  description?: string
   raw_instructions?: string
 }
 

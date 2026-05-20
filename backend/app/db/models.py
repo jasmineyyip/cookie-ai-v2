@@ -23,6 +23,7 @@ class Project(Base):
     id = Column(PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     title = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
     raw_instructions = Column(Text, nullable=True)
     status = Column(Enum('decomposing', 'ready', 'failed', name='project_status'), default='decomposing')
     created_at = Column(DateTime, default=utc_now)

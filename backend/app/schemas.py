@@ -26,6 +26,7 @@ class SubtaskUpdate(BaseModel):
 
 class ProjectUpdate(BaseModel):
     title: Optional[str] = None
+    description: Optional[str] = None
     raw_instructions: Optional[str] = None
 
 
@@ -47,6 +48,7 @@ class ProjectCreate(BaseModel):
 class ProjectRead(BaseModel):
     id: UUID
     title: str
+    description: Optional[str] = None
     raw_instructions: Optional[str]
     status: str
     created_at: datetime.datetime
