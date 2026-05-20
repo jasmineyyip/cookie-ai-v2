@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { QueryClient, QueryClientProvider, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Wand2, Plus, Trash2, Pencil, Clock, CirclePlus, CircleUserRound } from 'lucide-react'
+import { Wand2, Trash2, Pencil, Clock, CirclePlus, CircleUserRound } from 'lucide-react'
 import {
   createProject, createSubtask, deleteProject, deleteSubtask,
   getProject, listProjects, redecomposeProject, updateProject, updateSubtask,
@@ -158,7 +158,7 @@ function ProjectsPanel({ selectedId, onSelect, onAdd, onDelete }: {
   return (
     <div className="w-[240px] shrink-0 border-r border-border flex flex-col">
       <div className="flex justify-between items-center px-4 py-4">
-        <h2 className="text-sm font-semibold text-foreground tracking-wide uppercase">Projects</h2>
+        <h2 className="text-sm font-semibold text-foreground">Projects</h2>
         <Button variant="ghost" size="icon" onClick={onAdd} aria-label="Add project" className="text-primary hover:text-primary">
           <CirclePlus className="size-5" />
         </Button>
@@ -313,35 +313,36 @@ function InstructionsPanel({ projectId }: { projectId: string | null }) {
             </p>
           )}
         </div>
+      </div>
 
-        <Separator />
+      <Separator className="my-4" />
 
-        {/* Instructions */}
-        <div className="flex flex-col gap-2">
-          <Label className="text-sm font-medium">Instructions</Label>
-          <Textarea
-            placeholder="Paste in your assignment instructions."
-            value={instructions}
-            onChange={(e) => setInstructions(e.target.value)}
-            onBlur={handleInstructionsBlur}
-            disabled={noProject}
-            className="min-h-[260px] text-sm leading-relaxed resize-none"
-          />
-        </div>
+      {/* Instructions */}
+      <div className="flex flex-col gap-2">
+        <Label className="text-sm font-medium">Instructions</Label>
+        <Textarea
+          placeholder="Paste in your assignment instructions."
+          value={instructions}
+          onChange={(e) => setInstructions(e.target.value)}
+          onBlur={handleInstructionsBlur}
+          disabled={noProject}
+          className="min-h-[260px] text-sm leading-relaxed resize-none"
+        />
+      </div>
 
-        {/* Generate */}
-        <div className="flex items-center gap-3">
-          <Button
-            onClick={() => redecomposeMutation.mutate()}
-            disabled={noProject || redecomposeMutation.isPending}
-          >
-            <Wand2 className="size-4" />
-            {redecomposeMutation.isPending ? 'Generating...' : 'Generate subtasks'}
-          </Button>
-          {redecomposeMutation.isError && (
-            <p className="text-sm text-destructive">Generation failed. Try again.</p>
-          )}
-        </div>
+      {/* Generate */}
+      <div className="flex items-center gap-3 mt-4">
+        <Button
+          className="px-6"
+          onClick={() => redecomposeMutation.mutate()}
+          disabled={noProject || redecomposeMutation.isPending}
+        >
+          <Wand2 className="size-4" />
+          {redecomposeMutation.isPending ? 'Generating...' : 'Generate subtasks'}
+        </Button>
+        {redecomposeMutation.isError && (
+          <p className="text-sm text-destructive">Generation failed. Try again.</p>
+        )}
       </div>
     </div>
   )
@@ -367,7 +368,7 @@ function SubtasksPanel({ projectId, onAdd, onEdit, onDelete }: {
     <div className="w-[320px] shrink-0 border-l border-border flex flex-col">
       <div className="flex items-center gap-2 px-4 py-4">
         <Wand2 className="size-4 text-muted-foreground" />
-        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">AI-generated subtasks</span>
+        <span className="text-xs font-semibold text-muted-foreground">AI-generated subtasks</span>
       </div>
       <Separator />
       <ScrollArea className="flex-1 min-h-0 px-3 py-3">
@@ -379,8 +380,8 @@ function SubtasksPanel({ projectId, onAdd, onEdit, onDelete }: {
       </ScrollArea>
       {subtasks.length > 0 && (
         <div className="p-3 border-t border-border">
-          <Button variant="outline" size="sm" className="w-full" onClick={onAdd}>
-            <Plus className="size-4" />
+          <Button className="w-full" onClick={onAdd}>
+            <CirclePlus className="size-4" />
             Add a subtask
           </Button>
         </div>
@@ -397,9 +398,9 @@ function SubtaskCard({ subtask, onEdit, onDelete }: { subtask: Subtask; onEdit: 
   return (
     <Card className="relative overflow-hidden gap-0 py-0 shadow-none border-border group">
       <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-blue-border rounded-l-xl" />
-      <CardContent className="pl-5 pr-3 py-3">
-        <p className="text-sm font-semibold text-foreground leading-snug mb-1">{subtask.title}</p>
-        <p className="text-xs text-muted-foreground leading-relaxed mb-3">{subtask.description}</p>
+      <CardContent className="pl-5 pr-3 py-3 flex flex-col gap-1.5">
+        <p className="text-sm font-semibold text-foreground leading-snug">{subtask.title}</p>
+        <p className="text-xs text-muted-foreground leading-relaxed">{subtask.description}</p>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Badge className={cn('rounded-sm px-2 py-0.5 text-xs font-medium border-0', badgeCls)}>{label}</Badge>
