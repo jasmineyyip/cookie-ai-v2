@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from app.db.session import get_session
 from app.db.models import Project as ProjectModel, User as UserModel, Subtask as SubtaskModel
-from app.llm.claude import decompose
+from app.llm.claude import decompose, split_subtask
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -197,6 +197,52 @@ async def update_subtask(
 
     await db.flush()
     return subtask
+
+
+@router.post("/subtasks/{subtask_id}/split", response_model=ProjectRead)
+async def split_subtask_endpoint(subtask_id: str, db: AsyncSession = Depends(get_session)):
+    parsed_subtask_id = _parse_uuid(subtask_id, "Subtask")
+    q = select(SubtaskModel).where(SubtaskModel.id == parsed_subtask_id)
+    res = await db.execute(q)
+    subtask = res.scalars().first()
+    if not subtask:
+        raise HTTPException(status_code=404, detail="Subtask not found")
+
+    project = await _get_project_with_subtasks(db, str(subtask.project_id))
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    new_items = split_subtask(
+        title=subtask.title,
+        description=subtask.description or "",
+        estimated_minutes=subtask.estimated_minutes,
+        difficulty=subtask.difficulty,
+        project_context=project.raw_instructions or project.title,
+    )
+
+    insert_position = subtask.position
+    for s in project.subtasks:
+        if s.position >= insert_position and s.id != subtask.id:
+            s.position += 2
+            s.order_index += 2
+
+    for offset, item in enumerate(new_items):
+        new_subtask = SubtaskModel(
+            project_id=project.id,
+            title=item.get("title", f"{subtask.title} (Part {offset + 1})"),
+            description=item.get("description"),
+            estimated_minutes=item.get("estimated_minutes", max(5, subtask.estimated_minutes // 2)),
+            difficulty=item.get("difficulty", subtask.difficulty),
+            status="todo",
+            position=insert_position + offset,
+            order_index=insert_position + offset,
+        )
+        db.add(new_subtask)
+
+    await db.delete(subtask)
+    await db.flush()
+
+    return await _get_project_with_subtasks(db, str(project.id))
 
 
 @router.delete("/subtasks/{subtask_id}", status_code=status.HTTP_204_NO_CONTENT)

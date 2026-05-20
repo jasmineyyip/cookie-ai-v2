@@ -121,3 +121,7 @@ export function updateSubtask(subtaskId: string, payload: SubtaskUpdate) {
 export function deleteSubtask(subtaskId: string) {
   return request<void>(`/api/subtasks/${subtaskId}`, { method: 'DELETE' })
 }
+
+export function splitSubtask(subtaskId: string) {
+  return request<Project>(`/api/subtasks/${subtaskId}/split`, { method: 'POST' })
+}

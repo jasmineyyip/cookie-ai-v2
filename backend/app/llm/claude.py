@@ -46,6 +46,42 @@ Where relevant, specify task dependencies (indices of prerequisite subtasks).
 
 DEFAULT_CLAUDE_MODEL = "claude-sonnet-4-20250514"
 
+SPLIT_TOOL = {
+    "name": "split_subtask",
+    "description": "Split a single subtask into exactly 2 smaller, more focused subtasks that together cover all the work of the original.",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "subtasks": {
+                "type": "array",
+                "minItems": 2,
+                "maxItems": 2,
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "title": {"type": "string"},
+                        "description": {"type": "string"},
+                        "estimated_minutes": {"type": "integer", "minimum": 5},
+                        "difficulty": {"enum": ["easy", "medium", "hard"]},
+                    },
+                    "required": ["title", "description", "estimated_minutes", "difficulty"],
+                },
+            },
+        },
+        "required": ["subtasks"],
+    },
+}
+
+SPLIT_SYSTEM_PROMPT = """You are an expert project manager. You will be given a single subtask and must split it into exactly 2 smaller subtasks that together cover all the work of the original.
+
+Each subtask should be:
+- A distinct, non-overlapping piece of the original work
+- Completable in a single focused session (15min–4hr)
+- Concrete and specific
+- The sum of estimated_minutes for the 2 subtasks should be close to the original
+
+Assign difficulty (easy, medium, hard) based on cognitive load."""
+
 
 def _split_feature_list(text: str) -> List[str]:
     build_with = re.match(r"^(build|create)\s+(.+?)\s+with\s+(.+)$", text.strip(), re.IGNORECASE)
@@ -101,6 +137,44 @@ def _heuristic_decompose(text: str, max_items: int = 12):
             }
         )
     return subtasks
+
+
+def split_subtask(title: str, description: str, estimated_minutes: int, difficulty: str, project_context: str = "") -> List[Dict]:
+    api_key = os.getenv("ANTHROPIC_API_KEY") or os.getenv("CLAUDE_API_KEY")
+    if not api_key:
+        half = max(5, estimated_minutes // 2)
+        return [
+            {"title": f"{title} (Part 1)", "description": description or "", "estimated_minutes": half, "difficulty": difficulty},
+            {"title": f"{title} (Part 2)", "description": description or "", "estimated_minutes": half, "difficulty": difficulty},
+        ]
+
+    user_message = f"Split this subtask into exactly 2 smaller subtasks:\n\nTitle: {title}\nDescription: {description or 'N/A'}\nEstimated time: {estimated_minutes} minutes\nDifficulty: {difficulty}"
+    if project_context:
+        user_message = f"Project context: {project_context}\n\n{user_message}"
+
+    try:
+        client = Anthropic(api_key=api_key)
+        response = client.messages.create(
+            model=os.getenv("CLAUDE_MODEL", DEFAULT_CLAUDE_MODEL),
+            max_tokens=1024,
+            system=SPLIT_SYSTEM_PROMPT,
+            tools=[SPLIT_TOOL],
+            tool_choice={"type": "tool", "name": "split_subtask"},
+            messages=[{"role": "user", "content": user_message}],
+        )
+
+        for block in response.content:
+            if block.type == "tool_use" and block.name == "split_subtask":
+                return block.input.get("subtasks", [])
+
+        raise ValueError("No split_subtask tool call in response")
+    except Exception as e:
+        print(f"Claude split_subtask failed: {e}")
+        half = max(5, estimated_minutes // 2)
+        return [
+            {"title": f"{title} (Part 1)", "description": description or "", "estimated_minutes": half, "difficulty": difficulty},
+            {"title": f"{title} (Part 2)", "description": description or "", "estimated_minutes": half, "difficulty": difficulty},
+        ]
 
 
 def decompose(summary: str) -> List[Dict]:

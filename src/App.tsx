@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider, useMutation, useQuery, useQueryClient
 import { Wand2, Trash2, Pencil, Clock, CirclePlus, CircleUserRound, Scissors, GitMerge } from 'lucide-react'
 import {
   createProject, createSubtask, deleteProject, deleteSubtask,
-  getProject, listProjects, redecomposeProject, updateProject, updateSubtask,
+  getProject, listProjects, redecomposeProject, updateProject, updateSubtask, splitSubtask,
 } from './api'
 import type { Project, Subtask } from './api'
 import { Button } from '@/components/ui/button'
@@ -641,16 +641,6 @@ function AddSubtaskModal({ open, projectId, onClose }: { open: boolean; projectI
           hours={hours} setHours={setHours}
           minutes={mins} setMinutes={setMins}
         />
-        <div className="flex flex-col gap-0.5 mt-0.5">
-          <button className="flex items-center gap-1 text-xs text-slate hover:underline w-fit">
-            <Scissors className="size-3" />
-            Split this task further
-          </button>
-          <button className="flex items-center gap-1 text-xs text-slate hover:underline w-fit">
-            <GitMerge className="size-3" />
-            Merge this task with another one
-          </button>
-        </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={mutation.isPending}>Cancel</Button>
           <Button onClick={handleSubmit} disabled={mutation.isPending}>
@@ -682,13 +672,24 @@ function EditSubtaskModal({ open, subtask, onClose }: { open: boolean; subtask: 
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['projects'] }); onClose() },
   })
 
+  const splitMutation = useMutation({
+    mutationFn: () => splitSubtask(subtask.id),
+    onSuccess: (updated) => {
+      qc.setQueryData(['projects', updated.id], updated)
+      qc.invalidateQueries({ queryKey: ['projects'] })
+      onClose()
+    },
+  })
+
+  const busy = mutation.isPending || splitMutation.isPending
+
   function handleSubmit() {
     if (!name.trim()) { setNameError('Subtask name is required'); return }
     mutation.mutate()
   }
 
   return (
-    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose() }}>
+    <Dialog open={open} onOpenChange={(o) => { if (!o && !busy) onClose() }}>
       <DialogContent showCloseButton={false}>
         <DialogHeader>
           <DialogTitle>Edit subtask</DialogTitle>
@@ -701,9 +702,13 @@ function EditSubtaskModal({ open, subtask, onClose }: { open: boolean; subtask: 
           minutes={mins} setMinutes={setMins}
         />
         <div className="flex flex-col gap-0.5 mt-0.5">
-          <button className="flex items-center gap-1 text-xs text-slate hover:underline w-fit">
+          <button
+            className="flex items-center gap-1 text-xs text-slate hover:underline w-fit disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={busy}
+            onClick={() => splitMutation.mutate()}
+          >
             <Scissors className="size-3" />
-            Split this task further
+            {splitMutation.isPending ? 'Splitting...' : 'Split this task further'}
           </button>
           <button className="flex items-center gap-1 text-xs text-slate hover:underline w-fit">
             <GitMerge className="size-3" />
@@ -711,8 +716,8 @@ function EditSubtaskModal({ open, subtask, onClose }: { open: boolean; subtask: 
           </button>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={mutation.isPending}>Cancel</Button>
-          <Button onClick={handleSubmit} disabled={mutation.isPending}>
+          <Button variant="outline" onClick={onClose} disabled={busy}>Cancel</Button>
+          <Button onClick={handleSubmit} disabled={busy}>
             {mutation.isPending ? 'Saving...' : 'Save changes'}
           </Button>
         </DialogFooter>
