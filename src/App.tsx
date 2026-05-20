@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { QueryClient, QueryClientProvider, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Wand2, Trash2, Pencil, Clock, CirclePlus, Scissors, GitMerge, Loader2, Check, Download } from 'lucide-react'
+import { Wand2, Trash2, CirclePlus, Scissors, GitMerge, Check, Download } from 'lucide-react'
 import {
   createProject, createSubtask, deleteProject, deleteSubtask,
   getProject, listProjects, redecomposeProject, updateProject, updateSubtask, splitSubtask, reorderSubtasks, mergeSubtasks,
@@ -11,8 +11,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
-import { Badge } from '@/components/ui/badge'
-import { Card, CardContent } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import {
@@ -27,6 +25,7 @@ import {
 } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 import { Navbar } from '@/components/Navbar'
+import { SubtaskCardView } from '@/components/SubtaskCardView'
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, closestCenter } from '@dnd-kit/core'
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
@@ -38,12 +37,6 @@ const queryClient = new QueryClient()
 type ModalType = null | 'add-project' | 'delete-project' | 'add-subtask' | 'edit-subtask' | 'delete-subtask'
 type Priority = 'critical' | 'high' | 'medium' | 'low'
 
-const PRIORITY_CONFIG: Record<Priority, { label: string; className: string }> = {
-  critical: { label: 'Critical', className: 'bg-[#F87168] text-[#5D1F1A] hover:bg-[#F87168]' },
-  high:     { label: 'High',     className: 'bg-[#FEA363] text-[#702E00] hover:bg-[#FEA363]' },
-  medium:   { label: 'Medium',   className: 'bg-[#F6CC47] text-[#533F03] hover:bg-[#F6CC47]' },
-  low:      { label: 'Low',      className: 'bg-[#4CCE97] text-[#174B35] hover:bg-[#4CCE97]' },
-}
 
 const DIFFICULTY_TO_PRIORITY: Record<string, Priority> = {
   easy: 'low', medium: 'medium', hard: 'high',
@@ -53,13 +46,6 @@ const PRIORITY_TO_DIFFICULTY: Record<Priority, 'easy' | 'medium' | 'hard'> = {
   critical: 'hard', high: 'hard', medium: 'medium', low: 'easy',
 }
 
-function formatTime(minutes: number): string {
-  const h = Math.floor(minutes / 60)
-  const m = minutes % 60
-  if (h === 0) return `${m}m`
-  if (m === 0) return `${h}h`
-  return `${h}h ${m}m`
-}
 
 function App() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -431,46 +417,7 @@ function SubtasksPanel({ projectId, onAdd, onEdit, onDelete }: {
   )
 }
 
-function SubtaskCardView({ subtask, isNew, onSplit, splitPending, onEdit, onDelete, dragHandleProps }: {
-  subtask: Subtask; isNew?: boolean
-  onSplit: () => void; splitPending?: boolean
-  onEdit: () => void; onDelete: () => void
-  dragHandleProps?: React.HTMLAttributes<HTMLDivElement>
-}) {
-  const priorityKey = DIFFICULTY_TO_PRIORITY[subtask.difficulty] ?? 'medium'
-  const { label, className: badgeCls } = PRIORITY_CONFIG[priorityKey]
-  const timeStr = formatTime(subtask.estimated_minutes)
 
-  return (
-    <Card className="relative overflow-hidden gap-0 py-0 shadow-none border-border group">
-      <div {...dragHandleProps} className={cn('absolute left-0 top-0 bottom-0 w-1.5 rounded-l-xl', dragHandleProps ? 'cursor-grab active:cursor-grabbing' : 'cursor-default', isNew ? 'stripe-new' : 'bg-blue-border')} />
-      <CardContent className="pl-5 pr-3 py-3 flex flex-col gap-1.5">
-        <p className="text-sm font-semibold text-foreground leading-snug">{subtask.title}</p>
-        <p className="text-xs text-muted-foreground leading-relaxed">{subtask.description}</p>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Badge className={cn('rounded-sm px-2 py-0.5 text-xs font-medium border-0', badgeCls)}>{label}</Badge>
-            <div className="flex items-center gap-1 text-muted-foreground">
-              <Clock className="size-3" />
-              <span className="text-xs">{timeStr}</span>
-            </div>
-          </div>
-          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-            <Button variant="ghost" size="icon" className="size-7 text-muted-foreground hover:text-foreground" disabled={splitPending} onClick={onSplit}>
-              {splitPending ? <Loader2 className="size-3.5 animate-spin" /> : <Scissors className="size-3.5" />}
-            </Button>
-            <Button variant="ghost" size="icon" className="size-7 text-muted-foreground hover:text-foreground" onClick={onEdit}>
-              <Pencil className="size-3.5" />
-            </Button>
-            <Button variant="ghost" size="icon" className="size-7 text-muted-foreground hover:text-destructive" onClick={onDelete}>
-              <Trash2 className="size-3.5" />
-            </Button>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
 
 function SubtaskCard({ subtask, isNew, onEdit, onDelete }: { subtask: Subtask; isNew?: boolean; onEdit: () => void; onDelete: () => void }) {
   const qc = useQueryClient()
