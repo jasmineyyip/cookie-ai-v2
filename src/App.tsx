@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { QueryClient, QueryClientProvider, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Wand2, Trash2, Pencil, Clock, CirclePlus, CircleUserRound } from 'lucide-react'
 import {
@@ -56,7 +57,11 @@ function formatTime(minutes: number): string {
 }
 
 function App() {
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const selectedId = searchParams.get('project')
+  function setSelectedId(id: string | null) {
+    setSearchParams(id ? { project: id } : {}, { replace: true })
+  }
   const [modal, setModal] = useState<ModalType>(null)
   const [activeSubtask, setActiveSubtask] = useState<Subtask | null>(null)
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null)
@@ -158,7 +163,7 @@ function ProjectsPanel({ selectedId, onSelect, onAdd, onDelete }: {
   return (
     <div className="w-[240px] shrink-0 border-r border-border flex flex-col">
       <div className="flex justify-between items-center px-4 py-4">
-        <h2 className="text-sm font-semibold text-foreground">Projects</h2>
+        <h2 className="text-base font-semibold text-foreground">Projects</h2>
         <Button variant="ghost" size="icon" onClick={onAdd} aria-label="Add project" className="text-primary hover:text-primary">
           <CirclePlus className="size-5" />
         </Button>
@@ -321,7 +326,7 @@ function InstructionsPanel({ projectId }: { projectId: string | null }) {
       <div className="flex flex-col gap-2">
         <Label className="text-sm font-medium">Instructions</Label>
         <Textarea
-          placeholder="Paste in your assignment instructions."
+          placeholder="Paste in your project instructions."
           value={instructions}
           onChange={(e) => setInstructions(e.target.value)}
           onBlur={handleInstructionsBlur}
