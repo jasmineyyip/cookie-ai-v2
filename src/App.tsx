@@ -578,22 +578,27 @@ function SubtaskFormFields({
         <div>
           <Label className="mb-1.5 block">Time estimate</Label>
           <div className="flex items-center gap-2">
-            <Select value={String(hours)} onValueChange={(v) => setHours(Number(v))}>
-              <SelectTrigger className="flex-1">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {[0,1,2,3,4,5].map((h) => <SelectItem key={h} value={String(h)}>{h}h</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <Select value={String(minutes)} onValueChange={(v) => setMinutes(Number(v))}>
-              <SelectTrigger className="flex-1">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {[0,15,30,45].map((m) => <SelectItem key={m} value={String(m)}>{String(m).padStart(2,'0')}m</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <div className="relative flex-1">
+              <Input
+                type="number"
+                min={0}
+                value={hours}
+                onChange={(e) => setHours(Math.max(0, parseInt(e.target.value) || 0))}
+                className="pr-6"
+              />
+              <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">h</span>
+            </div>
+            <div className="relative flex-1">
+              <Input
+                type="number"
+                min={0}
+                max={59}
+                value={minutes}
+                onChange={(e) => setMinutes(Math.min(59, Math.max(0, parseInt(e.target.value) || 0)))}
+                className="pr-6"
+              />
+              <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">m</span>
+            </div>
           </div>
         </div>
       </div>
@@ -746,13 +751,29 @@ function EditSubtaskModal({ open, subtask, projectId, onClose }: { open: boolean
   const [nameError, setNameError] = useState('')
   const [showMerge, setShowMerge] = useState(false)
 
+  useEffect(() => {
+    setName(subtask.title)
+    setDesc(subtask.description ?? '')
+    setPriority(DIFFICULTY_TO_PRIORITY[subtask.difficulty] ?? 'medium')
+    setHours(Math.floor(subtask.estimated_minutes / 60))
+    setMins(subtask.estimated_minutes % 60)
+    setNameError('')
+  }, [subtask])
+
   const mutation = useMutation({
     mutationFn: () => updateSubtask(subtask.id, {
       title: name, description: desc,
       estimated_minutes: hours * 60 + mins,
       difficulty: PRIORITY_TO_DIFFICULTY[priority],
     }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['projects'] }); onClose() },
+    onSuccess: async (updatedSubtask) => {
+      qc.setQueryData<Project>(['projects', projectId], (old) => {
+        if (!old) return old
+        return { ...old, subtasks: old.subtasks.map((s) => s.id === updatedSubtask.id ? updatedSubtask : s) }
+      })
+      onClose()
+      await qc.refetchQueries({ queryKey: ['projects', projectId] })
+    },
   })
 
   const splitMutation = useMutation({
