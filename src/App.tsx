@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { QueryClient, QueryClientProvider, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Wand2, Trash2, Pencil, Clock, CirclePlus, CircleUserRound, Scissors, GitMerge, Loader2, Check } from 'lucide-react'
+import { Wand2, Trash2, Pencil, Clock, CirclePlus, CircleUserRound, Scissors, GitMerge, Loader2, Check, Download } from 'lucide-react'
 import {
   createProject, createSubtask, deleteProject, deleteSubtask,
   getProject, listProjects, redecomposeProject, updateProject, updateSubtask, splitSubtask, reorderSubtasks, mergeSubtasks,
@@ -336,7 +336,7 @@ function InstructionsPanel({ projectId }: { projectId: string | null }) {
           onChange={(e) => setInstructions(e.target.value)}
           onBlur={handleInstructionsBlur}
           disabled={noProject}
-          className="min-h-[260px] max-h-[500px] text-sm leading-relaxed resize-none overflow-y-auto"
+          className="min-h-[260px] max-h-[400px] text-sm leading-relaxed resize-none overflow-y-auto"
         />
       </div>
 
@@ -414,9 +414,14 @@ function SubtasksPanel({ projectId, onAdd, onEdit, onDelete }: {
 
   return (
     <div className="w-[320px] shrink-0 border-l border-border flex flex-col">
-      <div className="flex items-center gap-2 px-4 py-4">
-        <Wand2 className="size-4 text-muted-foreground" />
-        <span className="text-xs font-semibold text-muted-foreground">AI-generated subtasks</span>
+      <div className="flex justify-between items-center px-4 py-4">
+        <div className="flex items-center gap-2">
+          <Wand2 className="size-4 text-muted-foreground" />
+          <span className="text-xs font-semibold text-muted-foreground">AI-generated subtasks</span>
+        </div>
+        <Button variant="ghost" size="icon" onClick={onAdd} aria-label="Add subtask" className="text-primary hover:text-primary">
+          <CirclePlus className="size-5" />
+        </Button>
       </div>
       <Separator />
       <ScrollArea className="flex-1 min-h-0 px-3 py-3">
@@ -437,9 +442,9 @@ function SubtasksPanel({ projectId, onAdd, onEdit, onDelete }: {
       </ScrollArea>
       {orderedSubtasks.length > 0 && (
         <div className="p-3 border-t border-border">
-          <Button className="w-full" onClick={onAdd}>
-            <CirclePlus className="size-4" />
-            Add a subtask
+          <Button variant="outline" className="w-full" disabled>
+            <Download className="size-4" />
+            Export subtasks
           </Button>
         </div>
       )}
