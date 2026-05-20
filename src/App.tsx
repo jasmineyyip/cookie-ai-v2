@@ -189,8 +189,7 @@ function ProjectsPanel({ selectedId, onSelect, onAdd, onDelete }: {
                 {project.title}
               </button>
               <button
-                className="absolute right-0 size-7 opacity-0 group-hover:opacity-100 flex items-center justify-center rounded bg-transparent border-none"
-                style={{ color: '#c7372d' }}
+                className="absolute right-0 size-7 opacity-0 group-hover:opacity-100 flex items-center justify-center rounded bg-transparent border-none text-muted-foreground hover:text-destructive transition-colors"
                 onClick={(e) => { e.stopPropagation(); onDelete(project) }}
                 aria-label="Delete project"
               >
@@ -397,7 +396,6 @@ function SubtasksPanel({ projectId, onAdd, onEdit, onDelete }: {
     return () => clearTimeout(timer)
   }, [project?.subtasks])
 
-  const qc = useQueryClient()
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
 
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -416,7 +414,6 @@ function SubtasksPanel({ projectId, onAdd, onEdit, onDelete }: {
     const reordered = arrayMove(orderedSubtasks, oldIndex, newIndex)
     setOrderedSubtasks(reordered)
     reorderSubtasks(projectId!, reordered.map((s, i) => ({ id: s.id, position: i })))
-      .then((updated) => qc.setQueryData(['projects', projectId], updated))
   }
 
   return (
@@ -508,7 +505,7 @@ function SubtaskCard({ subtask, isNew, onEdit, onDelete }: { subtask: Subtask; i
     mutationFn: () => splitSubtask(subtask.id),
     onSuccess: (updated) => {
       qc.setQueryData(['projects', String(updated.id)], updated)
-      qc.refetchQueries({ queryKey: ['projects', String(updated.id)] })
+      qc.invalidateQueries({ queryKey: ['projects', String(updated.id)] })
     },
   })
 
@@ -826,7 +823,7 @@ function EditSubtaskModal({ open, subtask, projectId, onClose }: { open: boolean
         onClose={() => setShowMerge(false)}
         onSuccess={(updated) => {
           qc.setQueryData(['projects', projectId], updated)
-          qc.refetchQueries({ queryKey: ['projects', projectId] })
+          qc.invalidateQueries({ queryKey: ['projects', projectId] })
           setShowMerge(false)
           onClose()
         }}
