@@ -1,21 +1,29 @@
 import { useEffect, useRef, useState } from 'react'
 import { QueryClient, QueryClientProvider, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Wand2, Plus, Trash2, Pencil, Clock, CirclePlus, CircleUserRound } from 'lucide-react'
 import {
-  createProject,
-  createSubtask,
-  deleteProject,
-  deleteSubtask,
-  getProject,
-  listProjects,
-  redecomposeProject,
-  updateProject,
-  updateSubtask,
+  createProject, createSubtask, deleteProject, deleteSubtask,
+  getProject, listProjects, redecomposeProject, updateProject, updateSubtask,
 } from './api'
 import type { Project, Subtask } from './api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { Dialog, DialogContent, DialogTitle, DialogClose } from '@/components/ui/dialog'
+import { Label } from '@/components/ui/label'
+import { Badge } from '@/components/ui/badge'
+import { Card, CardContent } from '@/components/ui/card'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { Separator } from '@/components/ui/separator'
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from '@/components/ui/dialog'
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 import './App.css'
 
@@ -24,24 +32,19 @@ const queryClient = new QueryClient()
 type ModalType = null | 'add-project' | 'delete-project' | 'add-subtask' | 'edit-subtask' | 'delete-subtask'
 type Priority = 'critical' | 'high' | 'medium' | 'low'
 
-const PRIORITY_MAP: Record<Priority, { label: string; bg: string; color: string }> = {
-  critical: { label: 'Critical', bg: '#F87168', color: '#5D1F1A' },
-  high:     { label: 'High',     bg: '#FEA363', color: '#702E00' },
-  medium:   { label: 'Medium',   bg: '#F6CC47', color: '#533F03' },
-  low:      { label: 'Low',      bg: '#4CCE97', color: '#174B35' },
+const PRIORITY_CONFIG: Record<Priority, { label: string; className: string }> = {
+  critical: { label: 'Critical', className: 'bg-[#F87168] text-[#5D1F1A] hover:bg-[#F87168]' },
+  high:     { label: 'High',     className: 'bg-[#FEA363] text-[#702E00] hover:bg-[#FEA363]' },
+  medium:   { label: 'Medium',   className: 'bg-[#F6CC47] text-[#533F03] hover:bg-[#F6CC47]' },
+  low:      { label: 'Low',      className: 'bg-[#4CCE97] text-[#174B35] hover:bg-[#4CCE97]' },
 }
 
 const DIFFICULTY_TO_PRIORITY: Record<string, Priority> = {
-  easy: 'low',
-  medium: 'medium',
-  hard: 'high',
+  easy: 'low', medium: 'medium', hard: 'high',
 }
 
 const PRIORITY_TO_DIFFICULTY: Record<Priority, 'easy' | 'medium' | 'hard'> = {
-  critical: 'hard',
-  high: 'hard',
-  medium: 'medium',
-  low: 'easy',
+  critical: 'hard', high: 'hard', medium: 'medium', low: 'easy',
 }
 
 function formatTime(minutes: number): string {
@@ -67,7 +70,7 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <Navbar />
-      <div className="flex justify-between min-h-[calc(100vh-70px)]">
+      <div className="flex h-[calc(100vh-65px)] overflow-hidden">
         <ProjectsPanel
           selectedId={selectedId}
           onSelect={setSelectedId}
@@ -83,21 +86,13 @@ function App() {
         />
       </div>
 
-      <AddProjectModal
-        open={modal === 'add-project'}
-        onClose={closeModal}
-        onSuccess={(id) => { setSelectedId(id); closeModal() }}
-      />
+      <AddProjectModal open={modal === 'add-project'} onClose={closeModal}
+        onSuccess={(id) => { setSelectedId(id); closeModal() }} />
+
       {projectToDelete && (
-        <DeleteProjectModal
-          open={modal === 'delete-project'}
-          project={projectToDelete}
+        <DeleteProjectModal open={modal === 'delete-project'} project={projectToDelete}
           onClose={closeModal}
-          onSuccess={() => {
-            if (selectedId === projectToDelete.id) setSelectedId(null)
-            closeModal()
-          }}
-        />
+          onSuccess={() => { if (selectedId === projectToDelete.id) setSelectedId(null); closeModal() }} />
       )}
       {selectedId && (
         <AddSubtaskModal open={modal === 'add-subtask'} projectId={selectedId} onClose={closeModal} />
@@ -115,22 +110,27 @@ function App() {
 // ── Navbar ────────────────────────────────────────────
 
 function Navbar() {
+  const links = [
+    { label: 'Calendar', href: '/calendar' },
+    { label: 'To-do List', href: '/to-do' },
+    { label: 'Dashboard', href: '/dashboard' },
+  ]
   return (
-    <nav className="flex justify-between items-center px-4 py-4 border-b-[1.5px] border-border">
-      <div className="flex items-center pl-2">
-        <a href="/"><img src="/cookie-ai-logo.png" alt="Cookie AI" className="w-[35px] h-[35px]" /></a>
-        <ul className="flex items-center pt-0.5 pl-6 m-0 list-none gap-0">
-          {['Calendar', 'To-do List', 'Dashboard'].map((item) => (
-            <li key={item} className="px-3 py-2 mr-2 rounded hover:bg-bg-hover transition-colors">
-              <a href={`/${item.toLowerCase().replace(' ', '-')}`} className="text-slate text-sm font-medium">{item}</a>
-            </li>
+    <nav className="flex justify-between items-center px-5 h-[65px] border-b border-border bg-background">
+      <div className="flex items-center gap-6">
+        <a href="/"><img src="/cookie-ai-logo.png" alt="Cookie AI" className="w-8 h-8" /></a>
+        <div className="flex items-center gap-1">
+          {links.map(({ label, href }) => (
+            <Button key={label} variant="ghost" size="sm" asChild>
+              <a href={href} className="text-muted-foreground">{label}</a>
+            </Button>
           ))}
-        </ul>
+        </div>
       </div>
-      <div className="flex items-center pr-4">
-        <p className="text-slate text-sm">Hi, Jasmine!</p>
+      <div className="flex items-center gap-3">
+        <span className="text-sm text-muted-foreground">Hi, Jasmine!</span>
         <a href="/account">
-          <i className="fa-solid fa-circle-user text-amber text-2xl ml-4"></i>
+          <CircleUserRound className="size-7 text-amber" />
         </a>
       </div>
     </nav>
@@ -139,9 +139,7 @@ function Navbar() {
 
 // ── Left column: Projects ─────────────────────────────
 
-function ProjectsPanel({
-  selectedId, onSelect, onAdd, onDelete,
-}: {
+function ProjectsPanel({ selectedId, onSelect, onAdd, onDelete }: {
   selectedId: string | null
   onSelect: (id: string) => void
   onAdd: () => void
@@ -150,35 +148,42 @@ function ProjectsPanel({
   const { data: projects = [] } = useQuery({ queryKey: ['projects'], queryFn: listProjects })
 
   return (
-    <div className="flex-[3] p-5 border-r-[1.5px] border-border">
-      <div className="flex justify-between items-center pb-6 pl-1 pt-1">
-        <h2 className="text-navy font-semibold text-lg pt-0.5">Projects</h2>
-        <button className="bg-transparent border-none p-0 cursor-pointer leading-none" onClick={onAdd} aria-label="Add project">
-          <i className="fa-solid fa-circle-plus text-[30px] text-blue hover:text-blue-dark transition-colors"></i>
-        </button>
+    <div className="w-[240px] shrink-0 border-r border-border flex flex-col">
+      <div className="flex justify-between items-center px-4 py-4">
+        <h2 className="text-sm font-semibold text-foreground tracking-wide uppercase">Projects</h2>
+        <Button variant="ghost" size="icon" onClick={onAdd} aria-label="Add project" className="text-primary hover:text-primary">
+          <CirclePlus className="size-5" />
+        </Button>
       </div>
-      <div className="flex flex-col">
-        {projects.map((project) => (
-          <div key={project.id} className="relative h-[50px] mb-1">
-            <button
-              className={cn(
-                'absolute inset-0 w-full h-full border-none rounded-[10px] flex items-center cursor-pointer transition-colors',
-                selectedId === project.id ? 'bg-active-blue' : 'bg-white hover:bg-active-blue/25'
-              )}
-              onClick={() => onSelect(project.id)}
-            >
-              <p className="text-sm text-navy mx-0 ml-2.5 mr-10 whitespace-nowrap overflow-hidden text-ellipsis text-left">{project.title}</p>
-            </button>
-            <button
-              className="absolute right-1.5 top-1/2 -translate-y-1/2 bg-transparent border-none cursor-pointer p-1.5 leading-none z-10"
-              onClick={(e) => { e.stopPropagation(); onDelete(project) }}
-              aria-label="Delete project"
-            >
-              <i className="fa-regular fa-trash-can text-slate-light hover:text-red transition-colors"></i>
-            </button>
-          </div>
-        ))}
-      </div>
+      <Separator />
+      <ScrollArea className="flex-1 min-h-0 px-2 py-2">
+        <div className="flex flex-col gap-0.5">
+          {projects.map((project) => (
+            <div key={project.id} className="group relative flex items-center">
+              <button
+                onClick={() => onSelect(project.id)}
+                className={cn(
+                  'w-full text-left px-3 py-2 rounded-md text-sm transition-colors truncate pr-8',
+                  selectedId === project.id
+                    ? 'bg-accent text-foreground font-medium'
+                    : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+                )}
+              >
+                {project.title}
+              </button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute right-0 size-7 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive"
+                onClick={(e) => { e.stopPropagation(); onDelete(project) }}
+                aria-label="Delete project"
+              >
+                <Trash2 className="size-3.5" />
+              </Button>
+            </div>
+          ))}
+        </div>
+      </ScrollArea>
     </div>
   )
 }
@@ -199,16 +204,10 @@ function InstructionsPanel({ projectId }: { projectId: string | null }) {
   const [description, setDescription] = useState('')
   const [editingDesc, setEditingDesc] = useState(false)
   const [instructions, setInstructions] = useState('')
-
   const syncedIdRef = useRef<string | null>(null)
 
   useEffect(() => {
-    if (!projectId) {
-      setTitleValue('')
-      setInstructions('')
-      setDescription('')
-      syncedIdRef.current = null
-    }
+    if (!projectId) { setTitleValue(''); setInstructions(''); setDescription(''); syncedIdRef.current = null }
   }, [projectId])
 
   useEffect(() => {
@@ -220,8 +219,7 @@ function InstructionsPanel({ projectId }: { projectId: string | null }) {
   }, [project])
 
   const updateMutation = useMutation({
-    mutationFn: (payload: { title?: string; raw_instructions?: string }) =>
-      updateProject(projectId!, payload),
+    mutationFn: (payload: { title?: string; raw_instructions?: string }) => updateProject(projectId!, payload),
     onSuccess: (updated) => {
       qc.setQueryData(['projects', projectId], updated)
       qc.invalidateQueries({ queryKey: ['projects'] })
@@ -256,87 +254,84 @@ function InstructionsPanel({ projectId }: { projectId: string | null }) {
   const noProject = !projectId
 
   return (
-    <div className="flex-[8] p-5">
-      <div className="w-[95%] mx-auto">
-        {/* Logo lockup */}
-        <div className="flex items-center">
-          <img src="/cookie-ai-logo.png" alt="" className="w-5 h-5 my-2.5 mr-2.5" />
-          <span className="text-xl font-semibold pt-2 text-navy">Cookie AI</span>
-        </div>
+    <div className="flex-1 flex flex-col min-w-0 px-8 py-6 overflow-y-auto">
+      {/* Logo */}
+      <div className="flex items-center gap-2 mb-6">
+        <img src="/cookie-ai-logo.png" alt="" className="size-5" />
+        <span className="text-base font-semibold text-foreground">Cookie AI</span>
+      </div>
 
-        {/* Project header */}
-        <div className="pb-2.5">
-          {/* Title */}
-          <div className="relative inline-block">
-            {editingTitle ? (
-              <input
-                type="text"
-                value={titleValue}
-                onChange={(e) => setTitleValue(e.target.value)}
-                onBlur={handleTitleBlur}
-                onKeyDown={handleTitleKeyDown}
-                autoFocus
-                className="w-[500px] my-5 mb-[18.5px] outline-none border-none border-b-[1.5px] border-border text-navy text-xl font-semibold bg-transparent block"
-              />
-            ) : (
-              <h2
-                className={cn('text-xl font-semibold py-5 leading-snug', noProject ? 'text-slate-faint cursor-default' : 'text-navy cursor-pointer')}
-                onClick={() => !noProject && setEditingTitle(true)}
-              >
-                {noProject ? 'Select a project' : (titleValue || '...')}
-              </h2>
+      <div className="flex flex-col gap-4 max-w-2xl">
+        {/* Title */}
+        {editingTitle ? (
+          <Input
+            value={titleValue}
+            onChange={(e) => setTitleValue(e.target.value)}
+            onBlur={handleTitleBlur}
+            onKeyDown={handleTitleKeyDown}
+            autoFocus
+            className="text-xl font-semibold h-auto py-1 border-0 border-b rounded-none px-0 shadow-none focus-visible:ring-0"
+          />
+        ) : (
+          <h2
+            className={cn(
+              'text-xl font-semibold leading-tight',
+              noProject ? 'text-muted-foreground cursor-default' : 'text-foreground cursor-pointer hover:text-primary transition-colors'
             )}
-          </div>
+            onClick={() => !noProject && setEditingTitle(true)}
+          >
+            {noProject ? 'Select a project' : (titleValue || '...')}
+          </h2>
+        )}
 
-          {/* Description row */}
-          <div className="flex pb-5 w-full">
-            <div className="shrink-0">
-              <p className="text-sm text-navy pr-5 leading-6 whitespace-nowrap">Description</p>
-            </div>
-            <div className="w-full">
-              {editingDesc ? (
-                <textarea
-                  rows={1}
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  onBlur={() => setEditingDesc(false)}
-                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) (e.target as HTMLTextAreaElement).blur() }}
-                  autoFocus
-                  className="w-[calc(100%-16px)] rounded-md px-2 py-1 leading-6 text-slate-light text-sm resize-y border-[1.5px] border-border outline-none"
-                />
-              ) : (
-                <p
-                  className={cn('leading-6 text-sm min-h-6 cursor-pointer', description ? 'text-slate-light' : 'text-slate-faint')}
-                  onClick={() => !noProject && setEditingDesc(true)}
-                >
-                  {description || 'Add a description'}
-                </p>
-              )}
-            </div>
-          </div>
+        {/* Description */}
+        <div className="flex items-start gap-4">
+          <Label className="text-sm text-muted-foreground pt-0.5 w-24 shrink-0">Description</Label>
+          {editingDesc ? (
+            <Textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              onBlur={() => setEditingDesc(false)}
+              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) (e.target as HTMLTextAreaElement).blur() }}
+              autoFocus
+              className="min-h-0 text-sm"
+            />
+          ) : (
+            <p
+              className={cn('text-sm pt-0.5 min-h-5', description ? 'text-muted-foreground' : 'text-muted-foreground/50', !noProject && 'cursor-pointer hover:text-foreground transition-colors')}
+              onClick={() => !noProject && setEditingDesc(true)}
+            >
+              {description || 'Add a description'}
+            </p>
+          )}
         </div>
 
-        {/* Instructions textarea */}
-        <textarea
-          className="block w-[calc(100%-30px)] h-[300px] px-[15px] py-2.5 rounded-lg border-[1.5px] border-border shadow-[0_3px_5px_rgba(0,0,0,0.04)] resize-none text-sm leading-[26px] text-navy outline-none placeholder:text-slate-faint disabled:bg-bg-hover disabled:cursor-not-allowed"
-          placeholder="Paste in your assignment instructions."
-          value={instructions}
-          onChange={(e) => setInstructions(e.target.value)}
-          onBlur={handleInstructionsBlur}
-          disabled={noProject}
-        />
+        <Separator />
 
-        {/* Generate button */}
-        <div className="flex items-center gap-3 pt-5">
+        {/* Instructions */}
+        <div className="flex flex-col gap-2">
+          <Label className="text-sm font-medium">Instructions</Label>
+          <Textarea
+            placeholder="Paste in your assignment instructions."
+            value={instructions}
+            onChange={(e) => setInstructions(e.target.value)}
+            onBlur={handleInstructionsBlur}
+            disabled={noProject}
+            className="min-h-[260px] text-sm leading-relaxed resize-none"
+          />
+        </div>
+
+        {/* Generate */}
+        <div className="flex items-center gap-3">
           <Button
             onClick={() => redecomposeMutation.mutate()}
             disabled={noProject || redecomposeMutation.isPending}
           >
-            <i className="fa-solid fa-wand-magic-sparkles text-sm pr-2.5 text-white"></i>
-            <p className="text-sm font-medium m-0">{redecomposeMutation.isPending ? 'Generating...' : 'Generate subtasks'}</p>
+            <Wand2 className="size-4" />
+            {redecomposeMutation.isPending ? 'Generating...' : 'Generate subtasks'}
           </Button>
           {redecomposeMutation.isError && (
-            <p className="text-red text-[13px]">Generation failed. Try again.</p>
+            <p className="text-sm text-destructive">Generation failed. Try again.</p>
           )}
         </div>
       </div>
@@ -346,9 +341,7 @@ function InstructionsPanel({ projectId }: { projectId: string | null }) {
 
 // ── Right column: Subtasks ────────────────────────────
 
-function SubtasksPanel({
-  projectId, onAdd, onEdit, onDelete,
-}: {
+function SubtasksPanel({ projectId, onAdd, onEdit, onDelete }: {
   projectId: string | null
   onAdd: () => void
   onEdit: (subtask: Subtask) => void
@@ -363,176 +356,70 @@ function SubtasksPanel({
   const subtasks = project?.subtasks ?? []
 
   return (
-    <div className="flex-[4] p-5 border-l-[1.5px] border-border">
-      <div className="w-[95%] mx-auto">
-        <div className="flex justify-between items-center pb-5 text-xs font-medium text-slate">
-          <div className="flex items-center">
-            <i className="fa-solid fa-wand-magic-sparkles pr-2.5 text-slate-faint"></i>
-            <p className="text-slate-faint pt-0.5 text-xs">AI-generated subtasks</p>
-          </div>
-        </div>
-
-        <div className="w-[350px] max-h-[550px] overflow-y-auto pb-5 mb-5">
+    <div className="w-[320px] shrink-0 border-l border-border flex flex-col">
+      <div className="flex items-center gap-2 px-4 py-4">
+        <Wand2 className="size-4 text-muted-foreground" />
+        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">AI-generated subtasks</span>
+      </div>
+      <Separator />
+      <ScrollArea className="flex-1 min-h-0 px-3 py-3">
+        <div className="flex flex-col gap-3">
           {subtasks.map((subtask) => (
-            <SubtaskCard
-              key={subtask.id}
-              subtask={subtask}
-              onEdit={() => onEdit(subtask)}
-              onDelete={() => onDelete(subtask)}
-            />
+            <SubtaskCard key={subtask.id} subtask={subtask} onEdit={() => onEdit(subtask)} onDelete={() => onDelete(subtask)} />
           ))}
         </div>
-
-        {subtasks.length > 0 && (
-          <Button onClick={onAdd}>
-            <i className="fa-solid fa-plus text-sm pr-2.5 text-white"></i>
-            <span className="font-medium text-sm">Add a subtask</span>
+      </ScrollArea>
+      {subtasks.length > 0 && (
+        <div className="p-3 border-t border-border">
+          <Button variant="outline" size="sm" className="w-full" onClick={onAdd}>
+            <Plus className="size-4" />
+            Add a subtask
           </Button>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   )
 }
 
 function SubtaskCard({ subtask, onEdit, onDelete }: { subtask: Subtask; onEdit: () => void; onDelete: () => void }) {
   const priorityKey = DIFFICULTY_TO_PRIORITY[subtask.difficulty] ?? 'medium'
-  const priority = PRIORITY_MAP[priorityKey]
+  const { label, className: badgeCls } = PRIORITY_CONFIG[priorityKey]
   const timeStr = formatTime(subtask.estimated_minutes)
 
   return (
-    <div className="w-[330px] relative flex bg-[#F5F7FA] rounded-lg overflow-hidden mb-5">
-      <div className="absolute left-0 top-0 bottom-0 w-2.5 bg-blue-border rounded-tl-lg rounded-bl-lg shrink-0"></div>
-      <div className="py-[15px] pr-5 pl-[25px] grow min-w-0">
-        <p className="text-sm font-semibold leading-5 text-navy">{subtask.title}</p>
-        <p className="text-xs leading-5 py-[5px] pb-[15px] text-slate-light">{subtask.description}</p>
-        <div className="flex justify-between items-center">
-          <div className="flex items-center">
-            <p className="text-xs font-medium rounded-[3px] px-2.5 py-[3px] mr-3" style={{ backgroundColor: priority.bg, color: priority.color }}>
-              {priority.label}
-            </p>
-            <div className="flex items-center">
-              <i className="fa-regular fa-clock text-slate-light text-xs"></i>
-              <p className="text-slate-light text-xs pl-1.5 m-0"><span>{timeStr}</span> estimated</p>
+    <Card className="relative overflow-hidden gap-0 py-0 shadow-none border-border group">
+      <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-blue-border rounded-l-xl" />
+      <CardContent className="pl-5 pr-3 py-3">
+        <p className="text-sm font-semibold text-foreground leading-snug mb-1">{subtask.title}</p>
+        <p className="text-xs text-muted-foreground leading-relaxed mb-3">{subtask.description}</p>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Badge className={cn('rounded-sm px-2 py-0.5 text-xs font-medium border-0', badgeCls)}>{label}</Badge>
+            <div className="flex items-center gap-1 text-muted-foreground">
+              <Clock className="size-3" />
+              <span className="text-xs">{timeStr}</span>
             </div>
           </div>
-          <div className="flex items-center">
-            <i className="fa-regular fa-pen-to-square pl-2.5 text-[15px] text-slate-faint hover:text-navy transition-colors cursor-pointer" onClick={onEdit}></i>
-            <i className="fa-regular fa-trash-can pl-2.5 text-[15px] text-slate-faint hover:text-red transition-colors cursor-pointer" onClick={onDelete}></i>
+          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <Button variant="ghost" size="icon" className="size-7 text-muted-foreground hover:text-foreground" onClick={onEdit}>
+              <Pencil className="size-3.5" />
+            </Button>
+            <Button variant="ghost" size="icon" className="size-7 text-muted-foreground hover:text-destructive" onClick={onDelete}>
+              <Trash2 className="size-3.5" />
+            </Button>
           </div>
         </div>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   )
 }
 
-// ── Modal helpers ─────────────────────────────────────
-
-function ModalHeader({ title, onClose, disabled }: { title: string; onClose: () => void; disabled?: boolean }) {
-  return (
-    <div className="flex justify-between items-start mb-5">
-      <DialogTitle className="text-navy text-xl font-semibold">{title}</DialogTitle>
-      <DialogClose asChild>
-        <button
-          onClick={onClose}
-          disabled={disabled}
-          className="bg-transparent border-none w-10 h-10 rounded-full translate-x-5 -translate-y-5 cursor-pointer flex items-center justify-center hover:bg-border transition-colors disabled:opacity-60"
-        >
-          <i className="fa-solid fa-xmark text-[22px] text-navy"></i>
-        </button>
-      </DialogClose>
-    </div>
-  )
-}
+// ── Form helpers ──────────────────────────────────────
 
 function FieldError({ message }: { message?: string }) {
   if (!message) return null
-  return (
-    <p className="text-xs text-red-dark pb-1 mt-1 m-0">
-      <i className="fa-solid fa-exclamation-circle mr-1"></i>{message}
-    </p>
-  )
+  return <p className="text-xs text-destructive mt-1">{message}</p>
 }
-
-function ModalButtons({ confirmLabel, onClose, onConfirm, danger, disabled }: {
-  confirmLabel: string
-  onClose: () => void
-  onConfirm?: () => void
-  danger?: boolean
-  disabled?: boolean
-}) {
-  return (
-    <div className="flex gap-2.5 mt-2.5">
-      <Button variant={danger ? 'danger' : 'primary'} onClick={onConfirm} disabled={disabled}>{confirmLabel}</Button>
-      <Button variant="secondary" onClick={onClose} disabled={disabled}>Cancel</Button>
-    </div>
-  )
-}
-
-// ── Add Project modal ─────────────────────────────────
-
-function AddProjectModal({ open, onClose, onSuccess }: { open: boolean; onClose: () => void; onSuccess: (id: string) => void }) {
-  const qc = useQueryClient()
-  const [name, setName] = useState('')
-  const [nameError, setNameError] = useState('')
-
-  const mutation = useMutation({
-    mutationFn: () => createProject({ title: name }),
-    onSuccess: (project) => {
-      qc.invalidateQueries({ queryKey: ['projects'] })
-      onSuccess(project.id)
-    },
-  })
-
-  function handleSubmit() {
-    if (!name.trim()) { setNameError('Project name is required'); return }
-    mutation.mutate()
-  }
-
-  const pending = mutation.isPending
-
-  return (
-    <Dialog open={open} onOpenChange={(o) => { if (!o && !pending) onClose() }}>
-      <DialogContent>
-        <ModalHeader title="Add Project" onClose={onClose} disabled={pending} />
-        <div className="mb-2.5">
-          <Input
-            placeholder="Project Name"
-            value={name}
-            onChange={(e) => { setName(e.target.value); setNameError('') }}
-            error={!!nameError}
-            disabled={pending}
-          />
-          <FieldError message={nameError} />
-        </div>
-        <ModalButtons confirmLabel={pending ? 'Adding...' : 'Add Project'} onClose={onClose} onConfirm={handleSubmit} disabled={pending} />
-      </DialogContent>
-    </Dialog>
-  )
-}
-
-// ── Delete Project modal ──────────────────────────────
-
-function DeleteProjectModal({ open, project, onClose, onSuccess }: { open: boolean; project: Project; onClose: () => void; onSuccess: () => void }) {
-  const qc = useQueryClient()
-  const mutation = useMutation({
-    mutationFn: () => deleteProject(project.id),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['projects'] }); onSuccess() },
-  })
-
-  return (
-    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose() }}>
-      <DialogContent narrow>
-        <ModalHeader title="Delete project" onClose={onClose} />
-        <p className="text-navy text-sm leading-5 mb-5">
-          Once deleted, this project will no longer be accessible. This process cannot be undone.
-        </p>
-        <ModalButtons confirmLabel="Delete" onClose={onClose} onConfirm={() => mutation.mutate()} danger disabled={mutation.isPending} />
-      </DialogContent>
-    </Dialog>
-  )
-}
-
-// ── Shared subtask form fields ────────────────────────
 
 function SubtaskFormFields({
   name, setName, nameError,
@@ -548,39 +435,148 @@ function SubtaskFormFields({
   minutes: number; setMinutes: (v: number) => void
 }) {
   return (
-    <>
-      <div className="mb-2.5">
-        <Input placeholder="Subtask name" value={name} onChange={(e) => setName(e.target.value)} error={!!nameError} />
+    <div className="flex flex-col gap-4">
+      <div>
+        <Label htmlFor="subtask-name" className="mb-1.5 block">Subtask name</Label>
+        <Input
+          id="subtask-name"
+          placeholder="e.g. Write introduction"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          aria-invalid={!!nameError}
+        />
         <FieldError message={nameError} />
       </div>
-      <div className="mb-2.5">
-        <Textarea placeholder="Subtask description" value={desc} onChange={(e) => setDesc(e.target.value)} className="h-[100px] leading-[22px]" />
+      <div>
+        <Label htmlFor="subtask-desc" className="mb-1.5 block">Description</Label>
+        <Textarea
+          id="subtask-desc"
+          placeholder="What needs to be done?"
+          value={desc}
+          onChange={(e) => setDesc(e.target.value)}
+          className="min-h-[80px]"
+        />
       </div>
-      <div className="flex items-center pb-5 gap-1 pt-1">
-        <i className="fa-solid fa-fire text-[#FF7452] text-lg pr-1 pt-1"></i>
-        <select
-          className="bg-bg-hover border-none rounded-[3px] text-sm font-medium text-slate px-2 py-1 mx-1 cursor-pointer"
-          value={priority}
-          onChange={(e) => setPriority(e.target.value as Priority)}
-        >
-          <option value="critical">Critical</option>
-          <option value="high">High</option>
-          <option value="medium">Medium</option>
-          <option value="low">Low</option>
-        </select>
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <Label className="mb-1.5 block">Priority</Label>
+          <Select value={priority} onValueChange={(v) => setPriority(v as Priority)}>
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="critical">Critical</SelectItem>
+              <SelectItem value="high">High</SelectItem>
+              <SelectItem value="medium">Medium</SelectItem>
+              <SelectItem value="low">Low</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <Label className="mb-1.5 block">Time estimate</Label>
+          <div className="flex items-center gap-2">
+            <Select value={String(hours)} onValueChange={(v) => setHours(Number(v))}>
+              <SelectTrigger className="flex-1">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {[0,1,2,3,4,5].map((h) => <SelectItem key={h} value={String(h)}>{h}h</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={String(minutes)} onValueChange={(v) => setMinutes(Number(v))}>
+              <SelectTrigger className="flex-1">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {[0,15,30,45].map((m) => <SelectItem key={m} value={String(m)}>{String(m).padStart(2,'0')}m</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
       </div>
-      <div className="flex items-center gap-1 pb-5">
-        <i className="fa-solid fa-stopwatch text-slate-faint"></i>
-        <select className="bg-bg-hover border-none rounded-[3px] text-sm font-medium text-slate px-2 py-1 mx-1 cursor-pointer" value={hours} onChange={(e) => setHours(Number(e.target.value))}>
-          {[0, 1, 2, 3, 4, 5].map((h) => <option key={h} value={h}>{h}</option>)}
-        </select>
-        <span className="text-slate-faint text-sm">hours</span>
-        <select className="bg-bg-hover border-none rounded-[3px] text-sm font-medium text-slate px-2 py-1 mx-1 cursor-pointer" value={minutes} onChange={(e) => setMinutes(Number(e.target.value))}>
-          {[0, 15, 30, 45].map((m) => <option key={m} value={m}>{String(m).padStart(2, '0')}</option>)}
-        </select>
-        <span className="text-slate-faint text-sm">minutes</span>
-      </div>
-    </>
+    </div>
+  )
+}
+
+// ── Add Project modal ─────────────────────────────────
+
+function AddProjectModal({ open, onClose, onSuccess }: { open: boolean; onClose: () => void; onSuccess: (id: string) => void }) {
+  const qc = useQueryClient()
+  const [name, setName] = useState('')
+  const [nameError, setNameError] = useState('')
+
+  const mutation = useMutation({
+    mutationFn: () => createProject({ title: name }),
+    onSuccess: (project) => { qc.invalidateQueries({ queryKey: ['projects'] }); onSuccess(project.id) },
+  })
+
+  function handleSubmit() {
+    if (!name.trim()) { setNameError('Project name is required'); return }
+    mutation.mutate()
+  }
+
+  const pending = mutation.isPending
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o && !pending) onClose() }}>
+      <DialogContent showCloseButton={false}>
+        <DialogHeader>
+          <DialogTitle>New project</DialogTitle>
+        </DialogHeader>
+        <div>
+          <Label htmlFor="project-name" className="mb-1.5 block">Project name</Label>
+          <Input
+            id="project-name"
+            placeholder="e.g. Research paper"
+            value={name}
+            onChange={(e) => { setName(e.target.value); setNameError('') }}
+            aria-invalid={!!nameError}
+            disabled={pending}
+            autoFocus
+          />
+          <FieldError message={nameError} />
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={pending}>Cancel</Button>
+          <Button onClick={handleSubmit} disabled={pending}>
+            {pending ? 'Creating...' : 'Create project'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// ── Delete Project (AlertDialog) ──────────────────────
+
+function DeleteProjectModal({ open, project, onClose, onSuccess }: { open: boolean; project: Project; onClose: () => void; onSuccess: () => void }) {
+  const qc = useQueryClient()
+  const mutation = useMutation({
+    mutationFn: () => deleteProject(project.id),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['projects'] }); onSuccess() },
+  })
+
+  return (
+    <AlertDialog open={open} onOpenChange={(o) => { if (!o) onClose() }}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete "{project.title}"?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This project and all its subtasks will be permanently deleted. This cannot be undone.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={onClose}>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            onClick={() => mutation.mutate()}
+            disabled={mutation.isPending}
+          >
+            {mutation.isPending ? 'Deleting...' : 'Delete project'}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   )
 }
 
@@ -611,8 +607,10 @@ function AddSubtaskModal({ open, projectId, onClose }: { open: boolean; projectI
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose() }}>
-      <DialogContent>
-        <ModalHeader title="Add a subtask" onClose={onClose} />
+      <DialogContent showCloseButton={false}>
+        <DialogHeader>
+          <DialogTitle>Add subtask</DialogTitle>
+        </DialogHeader>
         <SubtaskFormFields
           name={name} setName={(v) => { setName(v); setNameError('') }} nameError={nameError}
           desc={desc} setDesc={setDesc}
@@ -620,7 +618,12 @@ function AddSubtaskModal({ open, projectId, onClose }: { open: boolean; projectI
           hours={hours} setHours={setHours}
           minutes={mins} setMinutes={setMins}
         />
-        <ModalButtons confirmLabel={mutation.isPending ? 'Adding...' : 'Add Subtask'} onClose={onClose} onConfirm={handleSubmit} disabled={mutation.isPending} />
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={mutation.isPending}>Cancel</Button>
+          <Button onClick={handleSubmit} disabled={mutation.isPending}>
+            {mutation.isPending ? 'Adding...' : 'Add subtask'}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   )
@@ -630,10 +633,9 @@ function AddSubtaskModal({ open, projectId, onClose }: { open: boolean; projectI
 
 function EditSubtaskModal({ open, subtask, onClose }: { open: boolean; subtask: Subtask; onClose: () => void }) {
   const qc = useQueryClient()
-  const initialPriority = DIFFICULTY_TO_PRIORITY[subtask.difficulty] ?? 'medium'
   const [name, setName] = useState(subtask.title)
   const [desc, setDesc] = useState(subtask.description ?? '')
-  const [priority, setPriority] = useState<Priority>(initialPriority)
+  const [priority, setPriority] = useState<Priority>(DIFFICULTY_TO_PRIORITY[subtask.difficulty] ?? 'medium')
   const [hours, setHours] = useState(Math.floor(subtask.estimated_minutes / 60))
   const [mins, setMins] = useState(subtask.estimated_minutes % 60)
   const [nameError, setNameError] = useState('')
@@ -654,8 +656,10 @@ function EditSubtaskModal({ open, subtask, onClose }: { open: boolean; subtask: 
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose() }}>
-      <DialogContent>
-        <ModalHeader title="Edit subtask" onClose={onClose} />
+      <DialogContent showCloseButton={false}>
+        <DialogHeader>
+          <DialogTitle>Edit subtask</DialogTitle>
+        </DialogHeader>
         <SubtaskFormFields
           name={name} setName={(v) => { setName(v); setNameError('') }} nameError={nameError}
           desc={desc} setDesc={setDesc}
@@ -663,13 +667,18 @@ function EditSubtaskModal({ open, subtask, onClose }: { open: boolean; subtask: 
           hours={hours} setHours={setHours}
           minutes={mins} setMinutes={setMins}
         />
-        <ModalButtons confirmLabel={mutation.isPending ? 'Saving...' : 'Save Changes'} onClose={onClose} onConfirm={handleSubmit} disabled={mutation.isPending} />
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={mutation.isPending}>Cancel</Button>
+          <Button onClick={handleSubmit} disabled={mutation.isPending}>
+            {mutation.isPending ? 'Saving...' : 'Save changes'}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   )
 }
 
-// ── Delete Subtask modal ──────────────────────────────
+// ── Delete Subtask (AlertDialog) ──────────────────────
 
 function DeleteSubtaskModal({ open, subtask, onClose }: { open: boolean; subtask: Subtask; onClose: () => void }) {
   const qc = useQueryClient()
@@ -679,15 +688,26 @@ function DeleteSubtaskModal({ open, subtask, onClose }: { open: boolean; subtask
   })
 
   return (
-    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose() }}>
-      <DialogContent narrow>
-        <ModalHeader title="Delete subtask" onClose={onClose} />
-        <p className="text-navy text-sm leading-5 mb-5">
-          Once deleted, this subtask will no longer be accessible. This process cannot be undone.
-        </p>
-        <ModalButtons confirmLabel="Delete" onClose={onClose} onConfirm={() => mutation.mutate()} danger disabled={mutation.isPending} />
-      </DialogContent>
-    </Dialog>
+    <AlertDialog open={open} onOpenChange={(o) => { if (!o) onClose() }}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete subtask?</AlertDialogTitle>
+          <AlertDialogDescription>
+            "{subtask.title}" will be permanently deleted. This cannot be undone.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={onClose}>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            onClick={() => mutation.mutate()}
+            disabled={mutation.isPending}
+          >
+            {mutation.isPending ? 'Deleting...' : 'Delete'}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   )
 }
 
