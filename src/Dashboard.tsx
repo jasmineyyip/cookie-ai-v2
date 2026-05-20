@@ -1,17 +1,9 @@
+import { useState } from 'react'
 import { Navbar } from '@/components/Navbar'
 import { SubtaskCardView } from '@/components/SubtaskCardView'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
-import type { Subtask } from '@/api'
-
-type DraftCard = Subtask & { projectName: string }
-
-const SAMPLE_DRAFT: DraftCard[] = [
-  { id: '1', title: 'Write introduction section', description: 'Draft the opening paragraph covering background and objectives.', difficulty: 'easy', estimated_minutes: 30, projectName: 'Research Paper', status: 'todo', position: 0, order_index: 0, created_at: '' },
-  { id: '2', title: 'Set up database schema', description: 'Define tables and relationships for the core data model.', difficulty: 'hard', estimated_minutes: 90, projectName: 'Backend API', status: 'todo', position: 1, order_index: 1, created_at: '' },
-  { id: '3', title: 'Design landing page wireframe', description: 'Create low-fidelity mockups for desktop and mobile layouts.', difficulty: 'medium', estimated_minutes: 60, projectName: 'Marketing Site', status: 'todo', position: 2, order_index: 2, created_at: '' },
-  { id: '4', title: 'Write unit tests for auth module', description: 'Cover login, logout, and token refresh flows.', difficulty: 'medium', estimated_minutes: 45, projectName: 'Backend API', status: 'todo', position: 3, order_index: 3, created_at: '' },
-]
+import { getDraftEntries, type DraftEntry } from '@/lib/draft-store'
 
 type Column = { id: string; label: string }
 
@@ -39,17 +31,19 @@ function KanbanColumn({ column, children }: { column: Column; children?: React.R
 }
 
 export default function Dashboard() {
+  const [draftEntries] = useState<DraftEntry[]>(getDraftEntries)
+
   return (
     <div className="flex flex-col h-screen overflow-hidden">
       <Navbar />
       <div className="flex gap-4 flex-1 min-h-0 p-5 overflow-hidden">
         {COLUMNS.map((col) => (
           <KanbanColumn key={col.id} column={col}>
-            {col.id === 'draft' && SAMPLE_DRAFT.map((card) => (
+            {col.id === 'draft' && draftEntries.map((entry) => (
               <SubtaskCardView
-                key={card.id}
-                subtask={card}
-                projectName={card.projectName}
+                key={entry.id}
+                subtask={entry}
+                projectName={entry.projectName}
                 onSplit={() => {}}
                 onEdit={() => {}}
                 onDelete={() => {}}

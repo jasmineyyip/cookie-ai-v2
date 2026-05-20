@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Wand2, Trash2, CirclePlus, Scissors, GitMerge, Check, Download } from 'lucide-react'
 import {
@@ -26,6 +26,7 @@ import {
 import { cn } from '@/lib/utils'
 import { Navbar } from '@/components/Navbar'
 import { SubtaskCardView } from '@/components/SubtaskCardView'
+import { addDraftEntries } from '@/lib/draft-store'
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, closestCenter } from '@dnd-kit/core'
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
@@ -331,6 +332,9 @@ function SubtasksPanel({ projectId, onAdd, onEdit, onDelete }: {
   onEdit: (subtask: Subtask) => void
   onDelete: (subtask: Subtask) => void
 }) {
+  const navigate = useNavigate()
+  const [showExportConfirm, setShowExportConfirm] = useState(false)
+
   const { data: project } = useQuery({
     queryKey: ['projects', projectId],
     queryFn: () => getProject(projectId!),
@@ -407,12 +411,33 @@ function SubtasksPanel({ projectId, onAdd, onEdit, onDelete }: {
       </ScrollArea>
       {orderedSubtasks.length > 0 && (
         <div className="p-3 border-t border-border">
-          <Button variant="outline" className="w-full" disabled>
+          <Button className="w-full" onClick={() => setShowExportConfirm(true)}>
             <Download className="size-4" />
             Export subtasks
           </Button>
         </div>
       )}
+
+      <AlertDialog open={showExportConfirm} onOpenChange={setShowExportConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Export to Dashboard?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {orderedSubtasks.length} subtask{orderedSubtasks.length !== 1 ? 's' : ''} from "{project?.title}" will be added to the Draft column on the Dashboard.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => {
+              addDraftEntries(orderedSubtasks.map((s) => ({ ...s, projectName: project?.title ?? 'Untitled' })))
+              setShowExportConfirm(false)
+              navigate('/dashboard')
+            }}>
+              Export
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
