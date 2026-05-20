@@ -501,30 +501,32 @@ function SubtaskFormFields({
 // ── Add Project modal ─────────────────────────────────
 
 function AddProjectModal({ open, onClose, onSuccess }: { open: boolean; onClose: () => void; onSuccess: (id: string) => void }) {
-  const qc = useQueryClient()
   const [name, setName] = useState('')
   const [nameError, setNameError] = useState('')
 
   const mutation = useMutation({
-    mutationFn: () => createProject({ title: name }),
-    onSuccess: (project) => { qc.invalidateQueries({ queryKey: ['projects'] }); onSuccess(project.id) },
+    mutationFn: (title: string) => createProject({ title }),
+    onSuccess: (project) => {
+      queryClient.setQueryData<Project[]>(['projects'], (old = []) => [...old, project])
+      onSuccess(project.id)
+    },
   })
 
   function handleSubmit() {
     if (!name.trim()) { setNameError('Project name is required'); return }
-    mutation.mutate()
+    mutation.mutate(name)
   }
 
   const pending = mutation.isPending
 
   return (
-    <Dialog open={open} onOpenChange={(o) => { if (!o && !pending) onClose() }}>
+    <Dialog open={open} onOpenChange={(o) => { if (!o && !pending) { setName(''); setNameError(''); onClose() } }}>
       <DialogContent showCloseButton={false}>
         <DialogHeader>
           <DialogTitle>New project</DialogTitle>
         </DialogHeader>
         <div>
-          <Label htmlFor="project-name" className="mb-1.5 block">Project name</Label>
+          <Label htmlFor="project-name" className="mb-3.5 block">Project name</Label>
           <Input
             id="project-name"
             placeholder="e.g. Research paper"
@@ -535,6 +537,7 @@ function AddProjectModal({ open, onClose, onSuccess }: { open: boolean; onClose:
             autoFocus
           />
           <FieldError message={nameError} />
+          {mutation.isError && <p className="text-xs text-destructive mt-1">{String(mutation.error)}</p>}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={pending}>Cancel</Button>
