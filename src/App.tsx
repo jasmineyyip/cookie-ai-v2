@@ -189,14 +189,18 @@ function InstructionsPanel({ projectId }: { projectId: string | null }) {
     mutationFn: (payload: { title?: string; description?: string; raw_instructions?: string }) => updateProject(projectId!, payload),
     onSuccess: (updated) => {
       qc.setQueryData(['projects', projectId], updated)
-      qc.invalidateQueries({ queryKey: ['projects'] })
+      qc.invalidateQueries({ queryKey: ['projects'], exact: true })
     },
   })
 
   const redecomposeMutation = useMutation({
-    mutationFn: () => redecomposeProject(projectId!),
+    mutationFn: async () => {
+      if (instructions !== (project?.raw_instructions ?? '')) {
+        await updateProject(projectId!, { raw_instructions: instructions })
+      }
+      return redecomposeProject(projectId!)
+    },
     onSuccess: (updated) => {
-      syncedIdRef.current = null
       qc.setQueryData(['projects', projectId], updated)
       qc.setQueryData<Project[]>(['projects'], (old = []) =>
         old.map(p => p.id === updated.id ? updated : p)
@@ -335,7 +339,9 @@ function SubtasksPanel({ projectId, onAdd, onEdit, onDelete }: {
   const serverSubtasks = project?.subtasks ?? []
   const [orderedSubtasks, setOrderedSubtasks] = useState<Subtask[]>([])
 
-  useEffect(() => { setOrderedSubtasks(serverSubtasks) }, [project?.subtasks]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    setOrderedSubtasks(serverSubtasks)
+  }, [project?.subtasks]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const prevIdsRef = useRef<Set<string>>(new Set())
   const [newIds, setNewIds] = useState<Set<string>>(new Set())
