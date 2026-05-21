@@ -40,11 +40,11 @@ type Priority = 'critical' | 'high' | 'medium' | 'low'
 
 
 const DIFFICULTY_TO_PRIORITY: Record<string, Priority> = {
-  easy: 'low', medium: 'medium', hard: 'high',
+  easy: 'low', medium: 'medium', hard: 'high', critical: 'critical',
 }
 
-const PRIORITY_TO_DIFFICULTY: Record<Priority, 'easy' | 'medium' | 'hard'> = {
-  critical: 'hard', high: 'hard', medium: 'medium', low: 'easy',
+const PRIORITY_TO_DIFFICULTY: Record<Priority, 'easy' | 'medium' | 'hard' | 'critical'> = {
+  critical: 'critical', high: 'hard', medium: 'medium', low: 'easy',
 }
 
 

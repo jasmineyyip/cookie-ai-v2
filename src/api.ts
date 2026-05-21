@@ -5,7 +5,7 @@ export type Subtask = {
   title: string
   description: string | null
   estimated_minutes: number
-  difficulty: 'easy' | 'medium' | 'hard'
+  difficulty: 'easy' | 'medium' | 'hard' | 'critical'
   status: SubtaskStatus
   position: number
   order_index: number
@@ -38,7 +38,7 @@ export type SubtaskCreate = {
   title: string
   description?: string
   estimated_minutes: number
-  difficulty: 'easy' | 'medium' | 'hard'
+  difficulty: 'easy' | 'medium' | 'hard' | 'critical'
 }
 
 export type SubtaskUpdate = {

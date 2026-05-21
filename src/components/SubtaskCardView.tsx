@@ -16,7 +16,7 @@ export function getProjectBadgeColor(projectName: string) {
 }
 
 const PRIORITY_CONFIG = {
-  critical: { label: 'Critical', className: 'bg-[#F87168] text-[#5D1F1A] hover:bg-[#F87168]', arrowCount: 4, arrowClass: 'text-priority-critical' },
+  critical: { label: 'Critical', className: 'bg-[#F87168] text-[#5D1F1A] hover:bg-[#F87168]', arrowCount: 3, arrowClass: 'text-priority-critical' },
   high:     { label: 'High',     className: 'bg-[#FEA363] text-[#702E00] hover:bg-[#FEA363]', arrowCount: 3, arrowClass: 'text-priority-high' },
   medium:   { label: 'Medium',   className: 'bg-[#F6CC47] text-[#533F03] hover:bg-[#F6CC47]', arrowCount: 2, arrowClass: 'text-priority-medium' },
   low:      { label: 'Low',      className: 'bg-[#4CCE97] text-[#174B35] hover:bg-[#4CCE97]', arrowCount: 1, arrowClass: 'text-priority-low' },
@@ -32,7 +32,7 @@ function PriorityArrows({ count, colorClass }: { count: number; colorClass: stri
   )
 }
 
-const DIFFICULTY_TO_PRIORITY = { easy: 'low', medium: 'medium', hard: 'high' } as const
+const DIFFICULTY_TO_PRIORITY = { easy: 'low', medium: 'medium', hard: 'high', critical: 'critical' } as const
 
 function formatTime(minutes: number) {
   const h = Math.floor(minutes / 60)
