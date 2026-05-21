@@ -32,8 +32,6 @@ function PriorityArrows({ count, colorClass }: { count: number; colorClass: stri
   )
 }
 
-const DIFFICULTY_TO_PRIORITY = { easy: 'low', medium: 'medium', hard: 'high', critical: 'critical' } as const
-
 function formatTime(minutes: number) {
   const h = Math.floor(minutes / 60)
   const m = minutes % 60
@@ -54,8 +52,7 @@ export function SubtaskCardView({ subtask, isNew, onSplit, splitPending, onEdit,
   hideSplit?: boolean
   hideStripe?: boolean
 }) {
-  const priorityKey = DIFFICULTY_TO_PRIORITY[subtask.difficulty] ?? 'medium'
-  const { label, className: badgeCls, arrowCount, arrowClass } = PRIORITY_CONFIG[priorityKey]
+  const { label, className: badgeCls, arrowCount, arrowClass } = PRIORITY_CONFIG[subtask.priority] ?? PRIORITY_CONFIG.medium
   const timeStr = formatTime(subtask.estimated_minutes)
   const badgeColor = projectName ? getProjectBadgeColor(projectName) : null
 

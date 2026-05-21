@@ -2,16 +2,9 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import type { Subtask } from '@/api'
 
-export type Priority = 'critical' | 'high' | 'medium' | 'low'
-
-export const DIFFICULTY_TO_PRIORITY: Record<string, Priority> = {
-  easy: 'low', medium: 'medium', hard: 'high', critical: 'critical',
-}
-
-export const PRIORITY_TO_DIFFICULTY: Record<Priority, 'easy' | 'medium' | 'hard' | 'critical'> = {
-  critical: 'critical', high: 'hard', medium: 'medium', low: 'easy',
-}
+export type Priority = Subtask['priority']
 
 export function FieldError({ message }: { message?: string }) {
   if (!message) return null

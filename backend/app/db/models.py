@@ -38,7 +38,7 @@ class Subtask(Base):
     title = Column(String, nullable=False)
     description = Column(Text, nullable=True)
     estimated_minutes = Column(Integer, nullable=False, default=30)
-    difficulty = Column(Enum('easy', 'medium', 'hard', 'critical', name='subtask_difficulty'), nullable=False)
+    priority = Column(Enum('low', 'medium', 'high', 'critical', name='subtask_priority'), nullable=False)
     status = Column(Enum('todo', 'in_progress', 'done', name='subtask_status'), default='todo')
     position = Column(Integer, nullable=False, default=0)
     order_index = Column(Integer, nullable=False, default=0)

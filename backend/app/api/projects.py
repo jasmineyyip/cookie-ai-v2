@@ -48,7 +48,7 @@ def _create_subtasks(project: ProjectModel, items: List[dict], db: AsyncSession)
             title=item.get("title") or f"Step {idx + 1}",
             description=item.get("description"),
             estimated_minutes=item.get("estimated_minutes", 30),
-            difficulty=item.get("difficulty", "medium"),
+            priority=item.get("priority", "medium"),
             status="todo",
             position=idx,
             order_index=idx,
@@ -160,7 +160,7 @@ async def create_subtask(
         title=payload.title,
         description=payload.description,
         estimated_minutes=payload.estimated_minutes,
-        difficulty=payload.difficulty,
+        priority=payload.priority,
         status="todo",
         position=len(project.subtasks),
         order_index=len(project.subtasks),
@@ -233,7 +233,7 @@ async def merge_subtasks_endpoint(
         "title": s.title,
         "description": s.description or "",
         "estimated_minutes": s.estimated_minutes,
-        "difficulty": s.difficulty,
+        "priority": s.priority,
     } for s in subtasks_to_merge])
 
     # Build new ordered list with a None placeholder where merged task goes
@@ -257,7 +257,7 @@ async def merge_subtasks_endpoint(
         title=merged.get("title", "Merged task"),
         description=merged.get("description"),
         estimated_minutes=merged.get("estimated_minutes", sum(s.estimated_minutes for s in subtasks_to_merge)),
-        difficulty=merged.get("difficulty", "medium"),
+        priority=merged.get("priority", "medium"),
         status="todo",
         position=merged_idx,
         order_index=merged_idx,
@@ -313,7 +313,7 @@ async def split_subtask_endpoint(subtask_id: str, db: AsyncSession = Depends(get
         title=subtask.title,
         description=subtask.description or "",
         estimated_minutes=subtask.estimated_minutes,
-        difficulty=subtask.difficulty,
+        priority=subtask.priority,
         project_context=project.raw_instructions or project.title,
     )
 
@@ -329,7 +329,7 @@ async def split_subtask_endpoint(subtask_id: str, db: AsyncSession = Depends(get
             title=item.get("title", f"{subtask.title} (Part {offset + 1})"),
             description=item.get("description"),
             estimated_minutes=item.get("estimated_minutes", max(5, subtask.estimated_minutes // 2)),
-            difficulty=item.get("difficulty", subtask.difficulty),
+            priority=item.get("priority", subtask.priority),
             status="todo",
             position=insert_position + offset,
             order_index=insert_position + offset,

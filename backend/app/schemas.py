@@ -8,7 +8,7 @@ class SubtaskBase(BaseModel):
     title: str
     description: Optional[str] = None
     estimated_minutes: int
-    difficulty: str
+    priority: str
 
 
 class SubtaskCreate(SubtaskBase):
@@ -19,7 +19,7 @@ class SubtaskUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
     estimated_minutes: Optional[int] = Field(default=None, ge=5)
-    difficulty: Optional[str] = None
+    priority: Optional[str] = None
     status: Optional[Literal["todo", "in_progress", "done"]] = None
     position: Optional[int] = Field(default=None, ge=0)
 

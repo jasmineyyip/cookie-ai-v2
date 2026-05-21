@@ -18,13 +18,13 @@ DECOMPOSE_TOOL = {
                         "title": {"type": "string"},
                         "description": {"type": "string"},
                         "estimated_minutes": {"type": "integer", "minimum": 5},
-                        "difficulty": {"enum": ["easy", "medium", "hard", "critical"]},
+                        "priority": {"enum": ["low", "medium", "high", "critical"]},
                         "depends_on": {
                             "type": "array",
                             "items": {"type": "integer"},
                         },
                     },
-                    "required": ["title", "description", "estimated_minutes", "difficulty"],
+                    "required": ["title", "description", "estimated_minutes", "priority"],
                 },
             },
         },
@@ -39,7 +39,7 @@ Each subtask should be:
 - Concrete and specific (avoid vague verbs like "improve")
 - If longer than ~2hr, split it further
 - Estimated in realistic minutes (account for friction, debugging, context-switching)
-- Assigned a difficulty (easy, medium, hard, critical) based on cognitive load, not duration
+- Assigned a priority (low, medium, high, critical) based on cognitive load, not duration
 
 Where relevant, specify task dependencies (indices of prerequisite subtasks).
 """
@@ -62,9 +62,9 @@ SPLIT_TOOL = {
                         "title": {"type": "string"},
                         "description": {"type": "string"},
                         "estimated_minutes": {"type": "integer", "minimum": 5},
-                        "difficulty": {"enum": ["easy", "medium", "hard", "critical"]},
+                        "priority": {"enum": ["low", "medium", "high", "critical"]},
                     },
-                    "required": ["title", "description", "estimated_minutes", "difficulty"],
+                    "required": ["title", "description", "estimated_minutes", "priority"],
                 },
             },
         },
@@ -80,7 +80,7 @@ Each subtask should be:
 - Concrete and specific
 - The sum of estimated_minutes for the 2 subtasks should be close to the original
 
-Assign difficulty (easy, medium, hard, critical) based on cognitive load."""
+Assign priority (low, medium, high, critical) based on cognitive load."""
 
 
 def _split_feature_list(text: str) -> List[str]:
@@ -132,23 +132,23 @@ def _heuristic_decompose(text: str, max_items: int = 12):
                 "title": _title_for_clause(p, i),
                 "description": p,
                 "estimated_minutes": 30,
-                "difficulty": "medium",
+                "priority": "medium",
                 "depends_on": [],
             }
         )
     return subtasks
 
 
-def split_subtask(title: str, description: str, estimated_minutes: int, difficulty: str, project_context: str = "") -> List[Dict]:
+def split_subtask(title: str, description: str, estimated_minutes: int, priority: str, project_context: str = "") -> List[Dict]:
     api_key = os.getenv("ANTHROPIC_API_KEY") or os.getenv("CLAUDE_API_KEY")
     if not api_key:
         half = max(5, estimated_minutes // 2)
         return [
-            {"title": f"{title} (Part 1)", "description": description or "", "estimated_minutes": half, "difficulty": difficulty},
-            {"title": f"{title} (Part 2)", "description": description or "", "estimated_minutes": half, "difficulty": difficulty},
+            {"title": f"{title} (Part 1)", "description": description or "", "estimated_minutes": half, "priority": priority},
+            {"title": f"{title} (Part 2)", "description": description or "", "estimated_minutes": half, "priority": priority},
         ]
 
-    user_message = f"Split this subtask into exactly 2 smaller subtasks:\n\nTitle: {title}\nDescription: {description or 'N/A'}\nEstimated time: {estimated_minutes} minutes\nDifficulty: {difficulty}"
+    user_message = f"Split this subtask into exactly 2 smaller subtasks:\n\nTitle: {title}\nDescription: {description or 'N/A'}\nEstimated time: {estimated_minutes} minutes\nDifficulty: {priority}"
     if project_context:
         user_message = f"Project context: {project_context}\n\n{user_message}"
 
@@ -172,8 +172,8 @@ def split_subtask(title: str, description: str, estimated_minutes: int, difficul
         print(f"Claude split_subtask failed: {e}")
         half = max(5, estimated_minutes // 2)
         return [
-            {"title": f"{title} (Part 1)", "description": description or "", "estimated_minutes": half, "difficulty": difficulty},
-            {"title": f"{title} (Part 2)", "description": description or "", "estimated_minutes": half, "difficulty": difficulty},
+            {"title": f"{title} (Part 1)", "description": description or "", "estimated_minutes": half, "priority": priority},
+            {"title": f"{title} (Part 2)", "description": description or "", "estimated_minutes": half, "priority": priority},
         ]
 
 
@@ -186,9 +186,9 @@ MERGE_TOOL = {
             "title": {"type": "string"},
             "description": {"type": "string"},
             "estimated_minutes": {"type": "integer", "minimum": 5},
-            "difficulty": {"enum": ["easy", "medium", "hard", "critical"]},
+            "priority": {"enum": ["low", "medium", "high", "critical"]},
         },
-        "required": ["title", "description", "estimated_minutes", "difficulty"],
+        "required": ["title", "description", "estimated_minutes", "priority"],
     },
 }
 
@@ -198,25 +198,25 @@ The merged subtask should:
 - Have a concise title capturing the combined scope
 - Have a unified description covering all the work
 - Have estimated_minutes roughly equal to the sum (reduce slightly if there's overlap)
-- Have difficulty equal to the highest difficulty among the inputs"""
+- Have priority equal to the highest priority among the inputs"""
 
 
 def merge_subtasks(subtasks: List[Dict]) -> Dict:
     api_key = os.getenv("ANTHROPIC_API_KEY") or os.getenv("CLAUDE_API_KEY")
     total_minutes = sum(s.get("estimated_minutes", 30) for s in subtasks)
-    difficulties = ["easy", "medium", "hard", "critical"]
-    max_difficulty = max((s.get("difficulty", "medium") for s in subtasks), key=lambda d: difficulties.index(d))
+    difficulties = ["low", "medium", "high", "critical"]
+    max_priority = max((s.get("priority", "medium") for s in subtasks), key=lambda d: difficulties.index(d))
 
     if not api_key:
         return {
             "title": " + ".join(s.get("title", "") for s in subtasks),
             "description": "\n".join(s.get("description", "") for s in subtasks if s.get("description")),
             "estimated_minutes": total_minutes,
-            "difficulty": max_difficulty,
+            "priority": max_priority,
         }
 
     items_text = "\n".join(
-        f"{i+1}. {s['title']} ({s.get('estimated_minutes', 30)} min, {s.get('difficulty', 'medium')}): {s.get('description', '')}"
+        f"{i+1}. {s['title']} ({s.get('estimated_minutes', 30)} min, {s.get('priority', 'medium')}): {s.get('description', '')}"
         for i, s in enumerate(subtasks)
     )
     user_message = f"Merge these subtasks into one:\n\n{items_text}"
@@ -241,7 +241,7 @@ def merge_subtasks(subtasks: List[Dict]) -> Dict:
             "title": " + ".join(s.get("title", "") for s in subtasks),
             "description": "\n".join(s.get("description", "") for s in subtasks if s.get("description")),
             "estimated_minutes": total_minutes,
-            "difficulty": max_difficulty,
+            "priority": max_priority,
         }
 
 

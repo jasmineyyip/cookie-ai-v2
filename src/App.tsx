@@ -23,7 +23,7 @@ import {
 import { cn } from '@/lib/utils'
 import { Navbar } from '@/components/Navbar'
 import { SubtaskCardView } from '@/components/SubtaskCardView'
-import { SubtaskFormFields, FieldError, DIFFICULTY_TO_PRIORITY, PRIORITY_TO_DIFFICULTY } from '@/components/SubtaskFormFields'
+import { SubtaskFormFields, FieldError } from '@/components/SubtaskFormFields'
 import type { Priority } from '@/components/SubtaskFormFields'
 import { addDraftEntries } from '@/lib/draft-store'
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, closestCenter } from '@dnd-kit/core'
@@ -561,7 +561,7 @@ function AddSubtaskModal({ open, projectId, onClose }: { open: boolean; projectI
     mutationFn: () => createSubtask(projectId, {
       title: name, description: desc,
       estimated_minutes: hours * 60 + mins,
-      difficulty: PRIORITY_TO_DIFFICULTY[priority],
+      priority,
     }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['projects', projectId] }); onClose() },
   })
@@ -601,7 +601,7 @@ function EditSubtaskModal({ open, subtask, projectId, onClose }: { open: boolean
   const qc = useQueryClient()
   const [name, setName] = useState(subtask.title)
   const [desc, setDesc] = useState(subtask.description ?? '')
-  const [priority, setPriority] = useState<Priority>(DIFFICULTY_TO_PRIORITY[subtask.difficulty] ?? 'medium')
+  const [priority, setPriority] = useState<Priority>(subtask.priority)
   const [hours, setHours] = useState(Math.floor(subtask.estimated_minutes / 60))
   const [mins, setMins] = useState(subtask.estimated_minutes % 60)
   const [nameError, setNameError] = useState('')
@@ -610,7 +610,7 @@ function EditSubtaskModal({ open, subtask, projectId, onClose }: { open: boolean
   useEffect(() => {
     setName(subtask.title)
     setDesc(subtask.description ?? '')
-    setPriority(DIFFICULTY_TO_PRIORITY[subtask.difficulty] ?? 'medium')
+    setPriority(subtask.priority)
     setHours(Math.floor(subtask.estimated_minutes / 60))
     setMins(subtask.estimated_minutes % 60)
     setNameError('')
@@ -620,7 +620,7 @@ function EditSubtaskModal({ open, subtask, projectId, onClose }: { open: boolean
     mutationFn: () => updateSubtask(subtask.id, {
       title: name, description: desc,
       estimated_minutes: hours * 60 + mins,
-      difficulty: PRIORITY_TO_DIFFICULTY[priority],
+      priority,
     }),
     onSuccess: async (updatedSubtask) => {
       qc.setQueryData<Project>(['projects', projectId], (old) => {

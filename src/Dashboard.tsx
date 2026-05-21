@@ -6,7 +6,7 @@ import { Separator } from '@/components/ui/separator'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { getDraftEntries, updateDraftEntry, type DraftEntry } from '@/lib/draft-store'
-import { SubtaskFormFields, DIFFICULTY_TO_PRIORITY, PRIORITY_TO_DIFFICULTY } from '@/components/SubtaskFormFields'
+import { SubtaskFormFields } from '@/components/SubtaskFormFields'
 import type { Priority } from '@/components/SubtaskFormFields'
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, closestCenter, useDroppable } from '@dnd-kit/core'
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core'
@@ -77,7 +77,7 @@ function DashboardEditModal({ entry, onClose, onSave }: {
 }) {
   const [name, setName] = useState(entry.title)
   const [desc, setDesc] = useState(entry.description ?? '')
-  const [priority, setPriority] = useState<Priority>(DIFFICULTY_TO_PRIORITY[entry.difficulty] ?? 'medium')
+  const [priority, setPriority] = useState<Priority>(entry.priority)
   const [hours, setHours] = useState(Math.floor(entry.estimated_minutes / 60))
   const [mins, setMins] = useState(entry.estimated_minutes % 60)
   const [nameError, setNameError] = useState('')
@@ -85,7 +85,7 @@ function DashboardEditModal({ entry, onClose, onSave }: {
   useEffect(() => {
     setName(entry.title)
     setDesc(entry.description ?? '')
-    setPriority(DIFFICULTY_TO_PRIORITY[entry.difficulty] ?? 'medium')
+    setPriority(entry.priority)
     setHours(Math.floor(entry.estimated_minutes / 60))
     setMins(entry.estimated_minutes % 60)
     setNameError('')
@@ -98,7 +98,7 @@ function DashboardEditModal({ entry, onClose, onSave }: {
       title: name,
       description: desc,
       estimated_minutes: hours * 60 + mins,
-      difficulty: PRIORITY_TO_DIFFICULTY[priority],
+      priority,
     })
   }
 
