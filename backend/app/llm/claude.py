@@ -18,7 +18,7 @@ DECOMPOSE_TOOL = {
                         "title": {"type": "string"},
                         "description": {"type": "string"},
                         "estimated_minutes": {"type": "integer", "minimum": 5},
-                        "difficulty": {"enum": ["easy", "medium", "hard"]},
+                        "difficulty": {"enum": ["easy", "medium", "hard", "critical"]},
                         "depends_on": {
                             "type": "array",
                             "items": {"type": "integer"},
@@ -39,7 +39,7 @@ Each subtask should be:
 - Concrete and specific (avoid vague verbs like "improve")
 - If longer than ~2hr, split it further
 - Estimated in realistic minutes (account for friction, debugging, context-switching)
-- Assigned a difficulty (easy, medium, hard) based on cognitive load, not duration
+- Assigned a difficulty (easy, medium, hard, critical) based on cognitive load, not duration
 
 Where relevant, specify task dependencies (indices of prerequisite subtasks).
 """
@@ -62,7 +62,7 @@ SPLIT_TOOL = {
                         "title": {"type": "string"},
                         "description": {"type": "string"},
                         "estimated_minutes": {"type": "integer", "minimum": 5},
-                        "difficulty": {"enum": ["easy", "medium", "hard"]},
+                        "difficulty": {"enum": ["easy", "medium", "hard", "critical"]},
                     },
                     "required": ["title", "description", "estimated_minutes", "difficulty"],
                 },
@@ -80,7 +80,7 @@ Each subtask should be:
 - Concrete and specific
 - The sum of estimated_minutes for the 2 subtasks should be close to the original
 
-Assign difficulty (easy, medium, hard) based on cognitive load."""
+Assign difficulty (easy, medium, hard, critical) based on cognitive load."""
 
 
 def _split_feature_list(text: str) -> List[str]:
@@ -186,7 +186,7 @@ MERGE_TOOL = {
             "title": {"type": "string"},
             "description": {"type": "string"},
             "estimated_minutes": {"type": "integer", "minimum": 5},
-            "difficulty": {"enum": ["easy", "medium", "hard"]},
+            "difficulty": {"enum": ["easy", "medium", "hard", "critical"]},
         },
         "required": ["title", "description", "estimated_minutes", "difficulty"],
     },
@@ -204,7 +204,7 @@ The merged subtask should:
 def merge_subtasks(subtasks: List[Dict]) -> Dict:
     api_key = os.getenv("ANTHROPIC_API_KEY") or os.getenv("CLAUDE_API_KEY")
     total_minutes = sum(s.get("estimated_minutes", 30) for s in subtasks)
-    difficulties = ["easy", "medium", "hard"]
+    difficulties = ["easy", "medium", "hard", "critical"]
     max_difficulty = max((s.get("difficulty", "medium") for s in subtasks), key=lambda d: difficulties.index(d))
 
     if not api_key:
