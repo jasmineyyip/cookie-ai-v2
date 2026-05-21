@@ -198,7 +198,9 @@ function InstructionsPanel({ projectId }: { projectId: string | null }) {
     onSuccess: (updated) => {
       syncedIdRef.current = null
       qc.setQueryData(['projects', projectId], updated)
-      qc.invalidateQueries({ queryKey: ['projects'] })
+      qc.setQueryData<Project[]>(['projects'], (old = []) =>
+        old.map(p => p.id === updated.id ? updated : p)
+      )
     },
   })
 
