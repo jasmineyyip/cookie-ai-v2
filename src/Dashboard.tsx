@@ -5,7 +5,8 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
-import { getDraftEntries, updateDraftEntry, type DraftEntry } from '@/lib/draft-store'
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
+import { getDraftEntries, updateDraftEntry, deleteDraftEntry, type DraftEntry } from '@/lib/draft-store'
 import { SubtaskFormFields } from '@/components/SubtaskFormFields'
 import type { Priority } from '@/components/SubtaskFormFields'
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, closestCenter, useDroppable } from '@dnd-kit/core'
@@ -21,7 +22,7 @@ const COLUMNS: Column[] = [
   { id: 'done',        label: 'DONE' },
 ]
 
-function SortableCard({ entry, onEdit }: { entry: DraftEntry; onEdit: (entry: DraftEntry) => void }) {
+function SortableCard({ entry, onEdit, onDelete }: { entry: DraftEntry; onEdit: (entry: DraftEntry) => void; onDelete: (entry: DraftEntry) => void }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: entry.id })
   const style = {
     transform: transform ? `translate3d(${Math.round(transform.x)}px, ${Math.round(transform.y)}px, 0)` : undefined,
@@ -37,24 +38,24 @@ function SortableCard({ entry, onEdit }: { entry: DraftEntry; onEdit: (entry: Dr
         hideStripe
         onSplit={() => {}}
         onEdit={() => onEdit(entry)}
-        onDelete={() => {}}
+        onDelete={() => onDelete(entry)}
       />
     </div>
   )
 }
 
-function DroppableList({ columnId, items, onEdit }: { columnId: string; items: DraftEntry[]; onEdit: (entry: DraftEntry) => void }) {
+function DroppableList({ columnId, items, onEdit, onDelete }: { columnId: string; items: DraftEntry[]; onEdit: (entry: DraftEntry) => void; onDelete: (entry: DraftEntry) => void }) {
   const { setNodeRef } = useDroppable({ id: columnId })
   return (
     <div ref={setNodeRef} className="flex flex-col gap-3 min-h-[40px]">
       <SortableContext items={items.map(e => e.id)} strategy={verticalListSortingStrategy}>
-        {items.map(entry => <SortableCard key={entry.id} entry={entry} onEdit={onEdit} />)}
+        {items.map(entry => <SortableCard key={entry.id} entry={entry} onEdit={onEdit} onDelete={onDelete} />)}
       </SortableContext>
     </div>
   )
 }
 
-function KanbanColumn({ column, items, onEdit }: { column: Column; items: DraftEntry[]; onEdit: (entry: DraftEntry) => void }) {
+function KanbanColumn({ column, items, onEdit, onDelete }: { column: Column; items: DraftEntry[]; onEdit: (entry: DraftEntry) => void; onDelete: (entry: DraftEntry) => void }) {
   return (
     <div className="flex flex-col flex-1 min-w-0 bg-secondary/40 rounded-lg border border-border">
       <div className="px-4 py-3 flex items-center gap-2">
@@ -64,7 +65,7 @@ function KanbanColumn({ column, items, onEdit }: { column: Column; items: DraftE
       </div>
       <Separator />
       <ScrollArea className="flex-1 min-h-0 p-3">
-        <DroppableList columnId={column.id} items={items} onEdit={onEdit} />
+        <DroppableList columnId={column.id} items={items} onEdit={onEdit} onDelete={onDelete} />
       </ScrollArea>
     </div>
   )
@@ -133,6 +134,7 @@ export default function Dashboard() {
   }))
   const [activeId, setActiveId] = useState<string | null>(null)
   const [editingEntry, setEditingEntry] = useState<DraftEntry | null>(null)
+  const [deletingEntry, setDeletingEntry] = useState<DraftEntry | null>(null)
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
   const activeEntry = Object.values(columns).flat().find(e => e.id === activeId) ?? null
@@ -194,6 +196,18 @@ export default function Dashboard() {
     setEditingEntry(null)
   }
 
+  function handleDelete(entry: DraftEntry) {
+    deleteDraftEntry(entry.id)
+    setColumns(prev => {
+      const next = { ...prev }
+      for (const colId of Object.keys(next)) {
+        next[colId] = next[colId].filter(e => e.id !== entry.id)
+      }
+      return next
+    })
+    setDeletingEntry(null)
+  }
+
   return (
     <div className="flex flex-col h-screen overflow-hidden">
       <Navbar />
@@ -206,7 +220,7 @@ export default function Dashboard() {
       >
         <div className="flex gap-4 flex-1 min-h-0 p-5 overflow-hidden">
           {COLUMNS.map(col => (
-            <KanbanColumn key={col.id} column={col} items={columns[col.id]} onEdit={setEditingEntry} />
+            <KanbanColumn key={col.id} column={col} items={columns[col.id]} onEdit={setEditingEntry} onDelete={setDeletingEntry} />
           ))}
         </div>
         <DragOverlay dropAnimation={null}>
@@ -231,6 +245,23 @@ export default function Dashboard() {
           onSave={handleSave}
         />
       )}
+
+      <AlertDialog open={!!deletingEntry} onOpenChange={(o) => { if (!o) setDeletingEntry(null) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete subtask?</AlertDialogTitle>
+            <AlertDialogDescription>
+              "{deletingEntry?.title}" will be removed from the dashboard. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={() => deletingEntry && handleDelete(deletingEntry)}>
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

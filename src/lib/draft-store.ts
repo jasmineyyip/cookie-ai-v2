@@ -21,3 +21,8 @@ export function updateDraftEntry(id: string, updates: Partial<DraftEntry>) {
   const entries = getDraftEntries()
   localStorage.setItem(STORAGE_KEY, JSON.stringify(entries.map(e => e.id === id ? { ...e, ...updates } : e)))
 }
+
+export function deleteDraftEntry(id: string) {
+  const entries = getDraftEntries()
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(entries.filter(e => e.id !== id)))
+}
