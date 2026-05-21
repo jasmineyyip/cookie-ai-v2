@@ -468,10 +468,15 @@ function AddProjectModal({ open, onClose, onSuccess }: { open: boolean; onClose:
   const [name, setName] = useState('')
   const [nameError, setNameError] = useState('')
 
+  useEffect(() => {
+    if (open) { setName(''); setNameError('') }
+  }, [open])
+
   const mutation = useMutation({
     mutationFn: (title: string) => createProject({ title }),
     onSuccess: (project) => {
-      queryClient.setQueryData<Project[]>(['projects'], (old = []) => [...old, project])
+      queryClient.setQueryData<Project[]>(['projects'], (old = []) => [project, ...(old ?? [])])
+      queryClient.invalidateQueries({ queryKey: ['projects'] })
       onSuccess(project.id)
     },
   })

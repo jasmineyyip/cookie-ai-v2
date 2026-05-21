@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils'
 
 const NAV_LINKS = [
   { label: 'Task Planner', href: '/', disabled: false },
-  { label: 'Calendar', href: '/calendar', disabled: true },
+  // { label: 'Calendar', href: '/calendar', disabled: true },
   { label: 'Dashboard', href: '/dashboard', disabled: false },
 ]
 
