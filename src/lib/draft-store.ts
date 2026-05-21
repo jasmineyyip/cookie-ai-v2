@@ -16,3 +16,8 @@ export function addDraftEntries(entries: DraftEntry[]) {
   const existing = getDraftEntries()
   localStorage.setItem(STORAGE_KEY, JSON.stringify([...existing, ...entries]))
 }
+
+export function updateDraftEntry(id: string, updates: Partial<DraftEntry>) {
+  const entries = getDraftEntries()
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(entries.map(e => e.id === id ? { ...e, ...updates } : e)))
+}
