@@ -339,6 +339,11 @@ function SubtasksPanel({ projectId, onAdd, onEdit, onDelete }: {
   const [newIds, setNewIds] = useState<Set<string>>(new Set())
 
   useEffect(() => {
+    prevIdsRef.current = new Set()
+    setNewIds(new Set())
+  }, [projectId])
+
+  useEffect(() => {
     const currentIds = new Set(serverSubtasks.map((s) => String(s.id)))
     const prev = prevIdsRef.current
     prevIdsRef.current = currentIds
