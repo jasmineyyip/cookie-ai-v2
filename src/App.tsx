@@ -429,7 +429,7 @@ function SubtasksPanel({ projectId, onAdd, onEdit, onDelete }: {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={() => {
-              addDraftEntries(orderedSubtasks.map((s) => ({ ...s, projectName: project?.title ?? 'Untitled' })))
+              addDraftEntries(orderedSubtasks.map((s) => ({ ...s, id: crypto.randomUUID(), projectName: project?.title ?? 'Untitled' })))
               setShowExportConfirm(false)
               navigate('/dashboard')
             }}>
