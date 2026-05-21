@@ -1,6 +1,6 @@
 import type { Subtask } from '@/api'
 
-export type DraftEntry = Subtask & { projectName: string }
+export type DraftEntry = Subtask & { projectName: string; column: string }
 
 const STORAGE_KEY = 'cookie-ai-draft'
 
@@ -12,9 +12,17 @@ export function getDraftEntries(): DraftEntry[] {
   }
 }
 
-export function addDraftEntries(entries: DraftEntry[]) {
+export function addDraftEntries(entries: Omit<DraftEntry, 'column'>[]) {
   const existing = getDraftEntries()
-  localStorage.setItem(STORAGE_KEY, JSON.stringify([...existing, ...entries]))
+  const stamped = entries.map(e => ({ ...e, column: 'draft' }))
+  localStorage.setItem(STORAGE_KEY, JSON.stringify([...existing, ...stamped]))
+}
+
+export function persistColumns(columns: Record<string, DraftEntry[]>) {
+  const flat = Object.entries(columns).flatMap(([colId, entries]) =>
+    entries.map(e => ({ ...e, column: colId }))
+  )
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(flat))
 }
 
 export function updateDraftEntry(id: string, updates: Partial<DraftEntry>) {

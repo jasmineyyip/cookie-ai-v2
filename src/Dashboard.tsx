@@ -6,7 +6,7 @@ import { Separator } from '@/components/ui/separator'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
-import { getDraftEntries, updateDraftEntry, deleteDraftEntry, type DraftEntry } from '@/lib/draft-store'
+import { getDraftEntries, persistColumns, updateDraftEntry, deleteDraftEntry, type DraftEntry } from '@/lib/draft-store'
 import { SubtaskFormFields } from '@/components/SubtaskFormFields'
 import type { Priority } from '@/components/SubtaskFormFields'
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, closestCenter, useDroppable } from '@dnd-kit/core'
@@ -126,12 +126,14 @@ function DashboardEditModal({ entry, onClose, onSave }: {
 }
 
 export default function Dashboard() {
-  const [columns, setColumns] = useState<Record<string, DraftEntry[]>>(() => ({
-    draft:       getDraftEntries(),
-    todo:        [],
-    in_progress: [],
-    done:        [],
-  }))
+  const [columns, setColumns] = useState<Record<string, DraftEntry[]>>(() => {
+    const grouped: Record<string, DraftEntry[]> = { draft: [], todo: [], in_progress: [], done: [] }
+    for (const entry of getDraftEntries()) {
+      const col = entry.column in grouped ? entry.column : 'draft'
+      grouped[col].push(entry)
+    }
+    return grouped
+  })
   const [activeId, setActiveId] = useState<string | null>(null)
   const [editingEntry, setEditingEntry] = useState<DraftEntry | null>(null)
   const [deletingEntry, setDeletingEntry] = useState<DraftEntry | null>(null)
@@ -165,22 +167,25 @@ export default function Dashboard() {
       const col      = columns[activeColId]
       const oldIndex = col.findIndex(e => e.id === activeId)
       const newIndex = col.findIndex(e => e.id === overId)
-      setColumns(prev => ({ ...prev, [activeColId]: arrayMove(col, oldIndex, newIndex) }))
+      const next = { ...columns, [activeColId]: arrayMove(col, oldIndex, newIndex) }
+      setColumns(next)
+      persistColumns(next)
     } else {
-      const moving     = columns[activeColId].find(e => e.id === activeId)!
-      const overCol    = columns[overColId]
-      const overIndex  = isOverColumn ? overCol.length : overCol.findIndex(e => e.id === overId)
-      const insertAt   = overIndex >= 0 ? overIndex : overCol.length
-
-      setColumns(prev => ({
-        ...prev,
-        [activeColId]: prev[activeColId].filter(e => e.id !== activeId),
+      const moving    = columns[activeColId].find(e => e.id === activeId)!
+      const overCol   = columns[overColId]
+      const overIndex = isOverColumn ? overCol.length : overCol.findIndex(e => e.id === overId)
+      const insertAt  = overIndex >= 0 ? overIndex : overCol.length
+      const next = {
+        ...columns,
+        [activeColId]: columns[activeColId].filter(e => e.id !== activeId),
         [overColId]:   [
-          ...prev[overColId].slice(0, insertAt),
+          ...columns[overColId].slice(0, insertAt),
           moving,
-          ...prev[overColId].slice(insertAt),
+          ...columns[overColId].slice(insertAt),
         ],
-      }))
+      }
+      setColumns(next)
+      persistColumns(next)
     }
   }
 
