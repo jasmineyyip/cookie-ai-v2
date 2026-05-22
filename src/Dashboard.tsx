@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import confetti from 'canvas-confetti'
 import { Navbar } from '@/components/Navbar'
 import { SubtaskCardView } from '@/components/SubtaskCardView'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -186,6 +187,12 @@ export default function Dashboard() {
       }
       setColumns(next)
       persistColumns(next)
+      if (overColId === 'done') {
+        const colors = ['#4CCE97', '#699def', '#F6CC47', '#FEA363', '#c87cf3', '#f67267']
+        confetti({ particleCount: 120, spread: 80, angle: 60,  startVelocity: 55, origin: { x: 0, y: 0.65 }, colors })
+        confetti({ particleCount: 120, spread: 80, angle: 120, startVelocity: 55, origin: { x: 1, y: 0.65 }, colors })
+        confetti({ particleCount: 60,  spread: 120, startVelocity: 40, origin: { x: 0.5, y: 0.4 }, colors })
+      }
     }
   }
 
