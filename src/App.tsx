@@ -172,19 +172,6 @@ function InstructionsPanel({ projectId }: { projectId: string | null }) {
   const [instructions, setInstructions] = useState('')
   const syncedIdRef = useRef<string | null>(null)
 
-  useEffect(() => {
-    if (!projectId) { setTitleValue(''); setInstructions(''); setDescription(''); syncedIdRef.current = null }
-  }, [projectId])
-
-  useEffect(() => {
-    if (project && project.id !== syncedIdRef.current) {
-      setTitleValue(project.title)
-      setDescription(project.description ?? '')
-      setInstructions(project.raw_instructions ?? '')
-      syncedIdRef.current = project.id
-    }
-  }, [project])
-
   const updateMutation = useMutation({
     mutationFn: (payload: { title?: string; description?: string; raw_instructions?: string }) => updateProject(projectId!, payload),
     onSuccess: (updated) => {
@@ -207,6 +194,20 @@ function InstructionsPanel({ projectId }: { projectId: string | null }) {
       )
     },
   })
+
+  useEffect(() => {
+    if (!projectId) { setTitleValue(''); setInstructions(''); setDescription(''); syncedIdRef.current = null }
+  }, [projectId])
+
+  useEffect(() => {
+    if (redecomposeMutation.isPending) return
+    if (project && project.id !== syncedIdRef.current) {
+      setTitleValue(project.title)
+      setDescription(project.description ?? '')
+      setInstructions(project.raw_instructions ?? '')
+      syncedIdRef.current = project.id
+    }
+  }, [project, redecomposeMutation.isPending])
 
   function handleTitleBlur() {
     setEditingTitle(false)
