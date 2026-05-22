@@ -2,6 +2,7 @@ import { ChevronUp, Clock, Loader2, Pencil, Scissors, Trash2 } from 'lucide-reac
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
+import { TooltipProvider, TooltipRoot, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import type { Subtask } from '@/api'
 
@@ -92,19 +93,36 @@ export function SubtaskCardView({ subtask, isNew, onSplit, splitPending, onEdit,
               <span className="text-xs">{timeStr}</span>
             </div>
           </div>
-          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-            {!hideSplit && (
-              <Button variant="ghost" size="icon" className="size-7 text-muted-foreground hover:text-foreground" disabled={splitPending} onClick={onSplit}>
-                {splitPending ? <Loader2 className="size-3.5 animate-spin" /> : <Scissors className="size-3.5" />}
-              </Button>
-            )}
-            <Button variant="ghost" size="icon" className="size-7 text-muted-foreground hover:text-foreground" onClick={onEdit}>
-              <Pencil className="size-3.5" />
-            </Button>
-            <Button variant="ghost" size="icon" className="size-7 text-muted-foreground hover:text-destructive" onClick={onDelete}>
-              <Trash2 className="size-3.5" />
-            </Button>
-          </div>
+          <TooltipProvider>
+            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              {!hideSplit && (
+                <TooltipRoot>
+                  <TooltipTrigger>
+                    <Button variant="ghost" size="icon" className="size-7 text-muted-foreground hover:text-foreground" disabled={splitPending} onClick={onSplit}>
+                      {splitPending ? <Loader2 className="size-3.5 animate-spin" /> : <Scissors className="size-3.5" />}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Split</TooltipContent>
+                </TooltipRoot>
+              )}
+              <TooltipRoot>
+                <TooltipTrigger>
+                  <Button variant="ghost" size="icon" className="size-7 text-muted-foreground hover:text-foreground" onClick={onEdit}>
+                    <Pencil className="size-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Edit</TooltipContent>
+              </TooltipRoot>
+              <TooltipRoot>
+                <TooltipTrigger>
+                  <Button variant="ghost" size="icon" className="size-7 text-muted-foreground hover:text-destructive" onClick={onDelete}>
+                    <Trash2 className="size-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Delete</TooltipContent>
+              </TooltipRoot>
+            </div>
+          </TooltipProvider>
         </div>
       </CardContent>
     </Card>
